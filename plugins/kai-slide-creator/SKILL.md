@@ -1,0 +1,1 @@
+skills/slide-planner/SKILL.md

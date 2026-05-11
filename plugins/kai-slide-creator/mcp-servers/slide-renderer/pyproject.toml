@@ -1,0 +1,14 @@
+[project]
+name = "slide-renderer-mcp"
+version = "3.0.0"
+description = "MCP server for slide-creator deterministic rendering"
+requires-python = ">=3.11"
+dependencies = [
+    "mcp>=1.0.0",
+    "pydantic>=2.0.0",
+    "jsonschema>=4.0.0",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"

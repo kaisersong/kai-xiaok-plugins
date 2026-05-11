@@ -1,0 +1,187 @@
+{
+  "schema_version": 1,
+  "brief_id": "kingdee-lingji-ceo-v19-plan",
+  "mode": "auto",
+  "language": "zh-CN",
+  "title": "金蝶灵基 for CEO V1.9 研发冲刺计划",
+  "audience": "CEO 及项目核心团队",
+  "desired_action": "确认 2 周冲刺计划并启动执行",
+  "deck": {
+    "deck_type": "user-content",
+    "page_count": 9,
+    "output_format": "html-slides"
+  },
+  "style": {
+    "preset": "Data Story",
+    "tone": "专业、紧凑、数据驱动",
+    "visual_density": "high"
+  },
+  "content": {
+    "source_policy": "distill-only",
+    "must_include": [
+      "2 周冲刺时间线（含五一加班）",
+      "5 大里程碑 M1–M5",
+      "46 项任务清单与负责人",
+      "13 项 Demo 验收闸",
+      "8 项重点风险与应对"
+    ],
+    "must_avoid": [
+      "泛泛的项目背景介绍",
+      "连续重复布局",
+      "与执行无关的细节"
+    ],
+    "global_facts": [
+      "截止：2026-05-10（Sun）",
+      "W1 含五一加班 5/1–5/4",
+      "M1+M2 并行，M3+M4 并行",
+      "QA 进 W2 即介入"
+    ],
+    "optional_support": [
+      "埋点 14 个事件",
+      "KBC 3.0 名单 ≥50 家",
+      "E2E 用例 ≥30 条"
+    ]
+  },
+  "narrative": {
+    "thesis": "金蝶灵基 V1.9 以 2 周冲刺锁定 5 大里程碑，46 项任务直通 5/10 Demo 评审。",
+    "page_roles": [
+      "cover",
+      "timeline",
+      "milestone-overview",
+      "task-breakdown",
+      "kpi-actions",
+      "data-integration",
+      "demo-checklist",
+      "risk-matrix",
+      "closing"
+    ],
+    "slides": [
+      {
+        "slide_number": 1,
+        "role": "cover",
+        "title": "金蝶灵基 V1.9：2 周冲刺计划",
+        "key_point": "5 大里程碑 · 46 项任务 · 5/10 Demo 评审",
+        "visual": "hero statement",
+        "claim": "2 周冲刺锁定信息架构、置信度体系、真实数据源与消息智能体",
+        "explanation": "5 大里程碑、46 项任务、13 项 Demo 验收闸，5 月 10 日评审必过",
+        "visual_intent": "hero statement with focal stats",
+        "preferred_layout_family": "hero"
+      },
+      {
+        "slide_number": 2,
+        "role": "timeline",
+        "title": "冲刺时间线：W1 并行攻坚，W2 数据闭环",
+        "key_point": "W1 信息架构 + 置信度并行；W2 数据源 + 消息智能体并行",
+        "visual": "timeline bar",
+        "claim": "五一加班 4 天为 W1 赢得时间，5/5 缓冲后 W2 全力冲刺",
+        "explanation": "4/29–5/4 完成 M1+M2；5/6–5/10 完成 M3+M4+M5",
+        "visual_intent": "horizontal timeline with milestone markers",
+        "preferred_layout_family": "flow"
+      },
+      {
+        "slide_number": 3,
+        "role": "milestone-overview",
+        "title": "M1+M2：信息架构升级与置信度体系落地",
+        "key_point": "简报精简、视觉焦点、置信度评分、KPI 三动作",
+        "visual": "four capability cards",
+        "claim": "W1 核心交付：可读性更强的简报 + 可信赖的数据置信度",
+        "explanation": "外部洞察 4 类 chip、日程四分类、置信度圆点、信息澄清面板、转发/追问/进一步分析",
+        "visual_intent": "capability grid with 4 cards",
+        "preferred_layout_family": "evidence"
+      },
+      {
+        "slide_number": 4,
+        "role": "milestone-overview",
+        "title": "M3+M4：真实数据接入与消息智能体闭环",
+        "key_point": "KBC 3.0、1 号报告、亏损减亏、云之间 IM、14 个埋点",
+        "visual": "integration diagram",
+        "claim": "W2 核心交付：后端跑通真实数据，IM 智能体一键回复",
+        "explanation": "KBC 3.0 名单导入、客户异动 6 类规则、websearch 档案爬取、云之间 IM OAuth + 摘要 + 回复",
+        "visual_intent": "system integration flow",
+        "preferred_layout_family": "flow"
+      },
+      {
+        "slide_number": 5,
+        "role": "task-breakdown",
+        "title": "46 项任务：P0 占 83%，全员覆盖",
+        "key_point": "FE/BE/AI/DA/PD/DS/QA 七角色协同",
+        "visual": "task distribution chart",
+        "claim": "P0 任务 38 项，P1 仅 8 项，资源聚焦核心路径",
+        "explanation": "M1 9 项、M2 9 项、M3 11 项、M4 10 项、M5 7 项；前端 14 项、后端 12 项、AI 8 项",
+        "visual_intent": "stacked bar or donut chart",
+        "preferred_layout_family": "data"
+      },
+      {
+        "slide_number": 6,
+        "role": "kpi-actions",
+        "title": "KPI 卡三动作：转发 · 追问 · 进一步分析",
+        "key_point": "通用组件化，覆盖简报/决策/KPI/KBC 四类卡片",
+        "visual": "three action cards",
+        "claim": "任何数据卡片都可一键流转，降低 CEO 决策摩擦",
+        "explanation": "转发弹层（Top3 推荐）、追问 split chat（上下文注入）、进一步分析（专家路由 + 深度报告）",
+        "visual_intent": "three parallel action cards",
+        "preferred_layout_family": "evidence"
+      },
+      {
+        "slide_number": 7,
+        "role": "demo-checklist",
+        "title": "5/10 Demo 验收闸：13 项必过项",
+        "key_point": "从简报精简到 websearch 写库，每项一个可演示证据",
+        "visual": "checklist grid",
+        "claim": "验收标准明确到可计数、可抓包、可 DB 校验",
+        "explanation": "V1–V13 覆盖内容、视觉、数据、功能、埋点、合规六大维度；QA 主责 9 项",
+        "visual_intent": "13-item checklist with pass criteria",
+        "preferred_layout_family": "comparison"
+      },
+      {
+        "slide_number": 8,
+        "role": "risk-matrix",
+        "title": "8 项重点风险：每条都有兜底方案",
+        "key_point": "API 未就绪、IM 权限、法规版权、加班疲劳",
+        "visual": "risk matrix",
+        "claim": "最大风险是时间，但并行策略 + Excel 兜底 + 缓存降级已覆盖",
+        "explanation": "KBC API 未就绪 → Excel 导入；IM 权限 → W1 提前对接；版权 → 白名单 + 法务审查；疲劳 → 5/5 缓冲",
+        "visual_intent": "risk vs mitigation matrix",
+        "preferred_layout_family": "comparison"
+      },
+      {
+        "slide_number": 9,
+        "role": "closing",
+        "title": "5/10 见：从计划到可演示产品",
+        "key_point": "灰度 5 名 CEO，24h P0 bug 清零",
+        "visual": "closing CTA",
+        "claim": "计划已拆到每人每天，下一步是执行与每日站会同步",
+        "explanation": "5/9 Demo 走查 ×2，5/10 评审 ≤7min；灰度启动后 24h P0 清零",
+        "visual_intent": "authoritative close with action stack",
+        "preferred_layout_family": "close"
+      }
+    ]
+  },
+  "runtime": {
+    "editing_mode": true,
+    "presenter_mode": true,
+    "watermark_mode": "injected-last-slide",
+    "export_intent": "none"
+  },
+  "plan_view": {
+    "emit_planning_view": false,
+    "planning_view_path": "PLANNING.md"
+  },
+  "timing": {
+    "estimate": {
+      "plan": "1-2 min",
+      "generate": "2-4 min",
+      "validate": "<1 min",
+      "polish": "0-1 min",
+      "total": "3-6 min"
+    },
+    "actual": {
+      "plan": "0m 00s",
+      "generate": "0m 00s",
+      "validate": "0m 00s",
+      "polish": "0m 00s",
+      "total": "0m 00s"
+    }
+  },
+  "notes": ""
+}

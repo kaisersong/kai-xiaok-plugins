@@ -1,0 +1,18 @@
+{
+  "version": "1.0.0",
+  "scoring": {
+    "l0_validation": { "weight": 30, "description": "No ::: leakage, ir-hash present" },
+    "l1_shell": { "weight": 20, "description": "Complete HTML shell structure" },
+    "l2_ids": { "weight": 20, "description": "All required interactive IDs present" },
+    "component_accuracy": { "weight": 15, "description": "Components render correct HTML structure" },
+    "theme_integrity": { "weight": 10, "description": "CSS loads correctly, no fallback errors" },
+    "performance": { "weight": 5, "description": "Render time < 500ms for typical reports" }
+  },
+  "pass_threshold": 80,
+  "comparison_metrics": {
+    "token_usage": "Compare context tokens: plugin mode vs skill-only mode",
+    "render_time_ms": "Wall clock time from IR to HTML",
+    "output_size_kb": "HTML file size",
+    "validation_pass_rate": "% of renders passing L0+L1+L2"
+  }
+}

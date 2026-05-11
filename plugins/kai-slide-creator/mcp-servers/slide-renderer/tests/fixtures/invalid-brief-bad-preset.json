@@ -1,0 +1,91 @@
+{
+  "schema_version": 1,
+  "brief_id": "test-003",
+  "mode": "auto",
+  "language": "zh",
+  "title": "测试",
+  "audience": "团队",
+  "desired_action": "理解",
+  "deck": {
+    "deck_type": "user-content",
+    "page_count": 5,
+    "output_format": "html-slides"
+  },
+  "style": {
+    "preset": "Nonexistent Preset",
+    "tone": "简洁",
+    "visual_density": "medium"
+  },
+  "content": {
+    "source_policy": "distill-only",
+    "must_include": ["核心"],
+    "must_avoid": ["冗余"]
+  },
+  "narrative": {
+    "thesis": "测试方案可行",
+    "page_roles": ["开场", "问题", "方案", "证据", "收尾"],
+    "slides": [
+      {
+        "slide_number": 1,
+        "role": "开场",
+        "title": "概览",
+        "key_point": "核心价值",
+        "visual": "标题+要点"
+      },
+      {
+        "slide_number": 2,
+        "role": "问题",
+        "title": "当前痛点",
+        "key_point": "效率低下",
+        "visual": "对比图"
+      },
+      {
+        "slide_number": 3,
+        "role": "方案",
+        "title": "解决方案",
+        "key_point": "自动化流程",
+        "visual": "流程图"
+      },
+      {
+        "slide_number": 4,
+        "role": "证据",
+        "title": "效果验证",
+        "key_point": "效率提升40%",
+        "visual": "数据图表"
+      },
+      {
+        "slide_number": 5,
+        "role": "收尾",
+        "title": "下一步行动",
+        "key_point": "立即启动",
+        "visual": "CTA"
+      }
+    ]
+  },
+  "runtime": {
+    "editing_mode": true,
+    "presenter_mode": true,
+    "watermark_mode": "injected-last-slide",
+    "export_intent": "none"
+  },
+  "plan_view": {
+    "emit_planning_view": false,
+    "planning_view_path": "PLANNING.md"
+  },
+  "timing": {
+    "estimate": {
+      "plan": "30s",
+      "generate": "2m",
+      "validate": "10s",
+      "polish": "0s",
+      "total": "3m"
+    },
+    "actual": {
+      "plan": "0s",
+      "generate": "0s",
+      "validate": "0s",
+      "polish": "0s",
+      "total": "0s"
+    }
+  }
+}

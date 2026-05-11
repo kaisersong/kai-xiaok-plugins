@@ -1,0 +1,23 @@
+{
+  "name": "kai-slide-creator",
+  "version": "3.0.0",
+  "interface": {
+    "display_name": "幻灯片生成器",
+    "short_description": "高质量 HTML 幻灯片，零依赖单文件，22 种风格预设",
+    "category": "content-creation",
+    "capabilities": ["slide-planning", "html-rendering", "preset-system"],
+    "keywords": ["slide", "presentation", "ppt", "deck", "html"]
+  },
+  "skills": ["skills/slide-planner"],
+  "mcpServers": [
+    {
+      "name": "slide-renderer",
+      "type": "stdio",
+      "command": "python3",
+      "args": ["mcp-servers/slide-renderer/server.py"]
+    }
+  ],
+  "hooks": [],
+  "commands": [],
+  "agents": []
+}
