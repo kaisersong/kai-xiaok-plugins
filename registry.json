@@ -1,0 +1,36 @@
+{
+  "version": 1,
+  "repo": "kaisersong/kai-xiaok-plugins",
+  "plugins": [
+    {
+      "name": "kai-slide-creator",
+      "display_name": "幻灯片生成器",
+      "description": "高质量 HTML 幻灯片，22 种风格预设，零依赖单文件",
+      "category": "content-creation",
+      "keywords": ["slide", "presentation", "ppt", "deck", "html", "幻灯片", "演示"],
+      "repo": "kaisersong/kai-xiaok-plugins",
+      "path": "plugins/kai-slide-creator",
+      "version": "3.0.0",
+      "dependencies": {
+        "runtime": "python3",
+        "install": "pip3 install -r mcp-servers/slide-renderer/requirements.txt",
+        "test": "cd mcp-servers/slide-renderer && python3 -m pytest tests/ -q"
+      }
+    },
+    {
+      "name": "kai-report-creator",
+      "display_name": "报告生成器",
+      "description": "高质量 HTML 报告，6 套主题，零依赖单文件",
+      "category": "content-creation",
+      "keywords": ["report", "html", "chart", "kpi", "dashboard", "报告", "看板"],
+      "repo": "kaisersong/kai-xiaok-plugins",
+      "path": "plugins/kai-report-creator",
+      "version": "2.0.0",
+      "dependencies": {
+        "runtime": "node",
+        "install": "cd mcp-servers/report-renderer && npm install && npm run build",
+        "test": "cd mcp-servers/report-renderer && npx vitest run"
+      }
+    }
+  ]
+}
