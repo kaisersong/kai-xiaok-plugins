@@ -17,7 +17,14 @@
       "args": ["mcp-servers/slide-renderer/server.py"]
     }
   ],
-  "hooks": [],
+  "hooks": [
+    {
+      "type": "prompt",
+      "events": ["UserPromptSubmit"],
+      "matcher": "install.*plugin|plugin.*install|安装.*幻灯|幻灯.*安装|安装.*ppt|安装.*演示",
+      "prompt": "The user is asking to install the slide-creator plugin. Guide them to run: `xiaok plugin install kai-slide-creator`. If they explicitly asked you to install it (e.g., '帮我安装幻灯片插件'), you can run that command directly."
+    }
+  ],
   "commands": [],
   "agents": []
 }

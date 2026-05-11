@@ -17,7 +17,14 @@
       "args": ["mcp-servers/report-renderer/dist/server.js"]
     }
   ],
-  "hooks": [],
+  "hooks": [
+    {
+      "type": "prompt",
+      "events": ["UserPromptSubmit"],
+      "matcher": "install.*plugin|plugin.*install|安装.*报告|报告.*安装|安装.*report",
+      "prompt": "The user is asking to install the report-creator plugin. Guide them to run: `xiaok plugin install kai-report-creator`. If they explicitly asked you to install it, you can run that command directly."
+    }
+  ],
   "commands": [],
   "agents": []
 }
