@@ -127,6 +127,13 @@ vendor_report_creator() {
         info "  schemas/ synced"
     fi
 
+    # Build MCP server
+    if command -v npm &>/dev/null && [[ -f "$server_dst/package.json" ]]; then
+        info "  Building MCP server (npm install + build)..."
+        (cd "$server_dst" && npm install 2>&1 | tail -1 && npm run build 2>&1 | tail -2)
+        info "  Build complete"
+    fi
+
     info "report-creator vendor complete"
 }
 
