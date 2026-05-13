@@ -14,7 +14,7 @@
       "name": "report-renderer",
       "type": "stdio",
       "command": "node",
-      "args": ["mcp-servers/report-renderer/dist/server.js"]
+      "args": ["mcp-servers/report-renderer/dist/server.bundle.js"]
     }
   ],
   "hooks": [

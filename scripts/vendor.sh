@@ -7,7 +7,7 @@
 #
 # 源 repo 路径默认:
 #   slide-creator  → ~/projects/slide-creator
-#   report-creator → ~/projects/kai-report-creator
+#   report-creator → ~/projects/report-creator
 # 可通过环境变量覆盖:
 #   SLIDE_CREATOR_REPO=/path/to/slide-creator
 #   REPORT_CREATOR_REPO=/path/to/report-creator
@@ -18,7 +18,7 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 
 SLIDE_CREATOR_REPO="${SLIDE_CREATOR_REPO:-$HOME/projects/slide-creator}"
-REPORT_CREATOR_REPO="${REPORT_CREATOR_REPO:-$HOME/projects/kai-report-creator}"
+REPORT_CREATOR_REPO="${REPORT_CREATOR_REPO:-$HOME/projects/report-creator}"
 
 # 颜色
 GREEN='\033[0;32m'
@@ -156,7 +156,7 @@ case "${1:-}" in
         echo ""
         echo "Environment variables:"
         echo "  SLIDE_CREATOR_REPO   source repo path (default: ~/projects/slide-creator)"
-        echo "  REPORT_CREATOR_REPO  source repo path (default: ~/projects/kai-report-creator)"
+        echo "  REPORT_CREATOR_REPO  source repo path (default: ~/projects/report-creator)"
         exit 1
         ;;
 esac
