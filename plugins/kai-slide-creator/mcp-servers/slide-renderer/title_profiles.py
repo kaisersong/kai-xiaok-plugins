@@ -5,7 +5,15 @@ from pathlib import Path
 from typing import Any
 
 
-ROOT = Path(__file__).resolve().parent.parent.parent
+def _discover_root() -> Path:
+    here = Path(__file__).resolve().parent
+    for candidate in [here, *here.parents]:
+        if (candidate / "references" / "title-profile-registry.json").exists():
+            return candidate
+    return here.parent
+
+
+ROOT = _discover_root()
 REGISTRY_PATH = ROOT / "references" / "title-profile-registry.json"
 
 STRUCTURAL_TITLE_PROFILES = {
@@ -68,11 +76,13 @@ def detect_slide_layout_id(slide: Any) -> str | None:
 def _resolve_preset_config(preset: str | None) -> tuple[str, dict[str, Any]]:
     registry = load_title_profile_registry()
     presets = registry["presets"]
-    normalized = _normalize_preset_name(preset)
-    for preset_name, config in presets.items():
-        if _normalize_preset_name(preset_name) == normalized:
-            return preset_name, config
-    raise KeyError(f"Unknown title profile preset: {preset}")
+    if preset:
+        normalized = _normalize_preset_name(preset)
+        for preset_name, config in presets.items():
+            if _normalize_preset_name(preset_name) == normalized:
+                return preset_name, config
+    # Fallback: custom theme gets default horizontal_balanced_left_anchor
+    return preset or "Custom", {"default_profile": "horizontal_balanced_left_anchor"}
 
 
 def _node_has_any_class(node: Any, classes: list[str]) -> bool:
@@ -214,4 +224,3 @@ def collect_title_candidate_nodes(slide: Any, preset: str | None) -> list[Any]:
                 seen.add(marker)
 
     return nodes
-

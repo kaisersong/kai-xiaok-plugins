@@ -150,7 +150,7 @@ python3 -m pytest tests/ -v
       "display_name": "幻灯片生成器",
       "repo": "kaisersong/kai-xiaok-plugins",
       "path": "plugins/kai-slide-creator",
-      "version": "3.1.0"
+      "version": "3.2.0"
     }
   ]
 }
@@ -166,9 +166,9 @@ python3 -m pytest tests/ -v
 # 编辑 registry.json 中的 version 字段
 
 # 3. 提交并推送到 GitHub
-git add -A && git commit -m "release: v3.1.0"
+git add -A && git commit -m "release: v3.2.0"
 git push
 
 # 4. 创建 GitHub Release
-gh release create v3.1.0 --generate-notes
+gh release create v3.2.0 --generate-notes
 ```

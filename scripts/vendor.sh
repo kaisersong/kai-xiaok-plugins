@@ -70,19 +70,23 @@ vendor_slide_creator() {
     ref_count=$(find "$ref_dst" -type f | wc -l | tr -d ' ')
     info "  references/ → $ref_count files"
 
-    # 4. 生成 preset-support-tiers.json（从 preset_support.py 提取 tier 信息）
-    python3 -c "
-import sys; sys.path.insert(0, '$server_dst')
-from preset_support import PRESET_REFERENCE_MAP
-tiers = {'production': [], 'supported': [], 'archive_candidate': []}
-for name, info in PRESET_REFERENCE_MAP.items():
-    tier = info.get('support_tier', 'supported')
-    tiers.setdefault(tier, []).append(name)
-import json
-print(json.dumps(tiers, indent=2, ensure_ascii=False))
-" > "$ref_dst/preset-support-tiers.json" 2>/dev/null || true
+    # 4. Custom themes → themes/
+    if [[ -d "$src/themes" ]]; then
+        mkdir -p "$dst/themes"
+        rsync -a --delete --exclude '.DS_Store' "$src/themes/" "$dst/themes/"
+        local theme_count
+        theme_count=$(find "$dst/themes" -type f | wc -l | tr -d ' ')
+        info "  themes/ → $theme_count files"
+    else
+        warn "  MISSING: themes/"
+    fi
 
-    info "  references/preset-support-tiers.json generated"
+    # 5. 保留源 repo 的 preset support matrix
+    if [[ -s "$ref_dst/preset-support-tiers.json" ]]; then
+        info "  references/preset-support-tiers.json copied"
+    else
+        warn "  MISSING or empty: references/preset-support-tiers.json"
+    fi
 
     info "slide-creator vendor complete"
 }

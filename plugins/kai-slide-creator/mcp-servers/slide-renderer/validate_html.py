@@ -57,16 +57,14 @@ def _discover_root() -> Path:
     file_value = globals().get("__file__")
     if file_value:
         here = Path(file_value).resolve().parent
-        # Walk up to find the directory containing references/ and SKILL.md
         for candidate in [here, *here.parents]:
-            if (candidate / "references").is_dir() and (candidate / "SKILL.md").exists():
+            if (candidate / "references" / "html-template.md").exists():
                 return candidate
-        # Fallback: parent.parent (source repo layout)
         return here.parent
 
     cwd = Path.cwd().resolve()
     for candidate in [cwd, *cwd.parents]:
-        if (candidate / "references").is_dir() and (candidate / "SKILL.md").exists():
+        if (candidate / "references" / "html-template.md").exists():
             return candidate
     return cwd
 
@@ -1013,6 +1011,18 @@ def check_visual_variety(soup, content, warnings) -> tuple[bool, str]:
     if len(slides) < 4:
         return True, "Too few slides to check visual variety"
 
+    # Custom themes may intentionally repeat a layout (e.g. Kingdee section slides)
+    is_custom_theme = bool(soup.find(attrs={"data-preset": True}))
+    preset_name = ""
+    body = soup.find("body")
+    if body and body.get("data-preset"):
+        preset_name = body["data-preset"].lower()
+    # Known custom themes that use repeated section layouts by design
+    custom_theme_exceptions = {"kingdee"}
+    if is_custom_theme and any(t in preset_name for t in custom_theme_exceptions):
+        if len(slides) <= 6:
+            return True, "Visual variety OK (custom theme with intentional layout repetition)"
+
     generic = {
         "slide", "slide-content", "content", "reveal", "visible", "bg-num",
         "slide-num-label", "light", "eyebrow", "swiss-rule", "swiss-rule-thin",
@@ -1265,8 +1275,8 @@ def check_watermark_injection(soup, content, warnings) -> tuple[bool, str]:
     if has_js_injection:
         return True, "Watermark appears JS-injected (heuristic)"
 
-    # If no watermark found at all, that's OK for minimal decks
-    return True, "Watermark not detected (heuristic)"
+    warnings.append("Watermark not detected; generated decks should inject slide-credit on the last slide")
+    return True, "Watermark not detected (warning)"
 
 
 # ─── Runner ───────────────────────────────────────────────────────────────────

@@ -1,0 +1,770 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>云之家 Cloudhub 方案演示</title>
+    <style>
+        /* ===========================================
+           云之家品牌风格 - Cloudhub Brand Style
+           基于 Kingdee 风格，加入 Cloudhub 专属元素
+           =========================================== */
+
+        :root {
+            /* 蓝色渐变 */
+            --kd-gradient-start:  #2372EF;
+            --kd-gradient-mid:    #238EF7;
+            --kd-gradient-end:    #22AAFE;
+
+            /* 品牌蓝 */
+            --kd-blue:            #2971EB;
+
+            /* 标准白 */
+            --bg-white:           #FFFFFF;
+
+            /* 辅助色系 */
+            --kd-skyblue:         #22AAFE;
+            --kd-skyblue-light:   #00CCFE;
+            --kd-teal:            #05C8C8;
+            --kd-purple:          #A06EFF;
+            --kd-yellow:          #FFB61A;
+
+            /* 中性色 */
+            --kd-black:           #000000;
+            --kd-blue-purple:     #28235F;
+            --kd-gray-dark:       #3B3838;
+            --kd-gray:            #BFBFBF;
+            --kd-light-blue:      #E7F1FF;
+
+            /* 文字色 */
+            --text-primary:       #1A1A1A;
+            --text-secondary:     #666666;
+            --text-on-blue:       #FFFFFF;
+
+            /* 功能色 */
+            --divider:            #E5E5E5;
+            --card-bg:            #F5F7FA;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        html {
+            scroll-snap-type: y mandatory;
+            scroll-behavior: smooth;
+        }
+
+        body {
+            font-family: "Microsoft YaHei", "PingFang SC", "Noto Sans CJK SC", sans-serif;
+            -webkit-font-smoothing: antialiased;
+            background: var(--bg-white);
+        }
+
+        /* ===========================================
+           Slide Base
+           =========================================== */
+        .slide {
+            width: 100vw;
+            height: 100vh;
+            height: 100dvh;
+            overflow: hidden;
+            scroll-snap-align: start;
+            position: relative;
+        }
+
+        /* ===========================================
+           1. 首页 / Title Slide (Cloudhub 专属)
+           =========================================== */
+        .slide-title {
+            background: var(--bg-white);
+            display: flex;
+            align-items: center;
+        }
+
+        /* 全屏背景图 */
+        .kd-hero-image {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            z-index: 1;
+        }
+
+        .kd-logo-left {
+            position: absolute;
+            top: 40px;
+            left: 60px;
+            height: 48px;
+            z-index: 10;
+        }
+
+        /* ⭐ Cloudhub 专属：右上角 Slogan 图 */
+        .ch-slogan {
+            position: absolute;
+            top: 40px;
+            right: 60px;
+            height: 48px;            /* 与左上角 Logo 等高 */
+            z-index: 10;
+        }
+
+        /* 主标题区域 - 居中 */
+        .title-content {
+            position: absolute;
+            left: 50%;
+            top: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+            z-index: 5;
+            width: 80%;
+        }
+
+        /* 主标题 - 白色，54磅，单行，自动缩放 */
+        .title-main {
+            font-size: 54pt;
+            font-weight: 700;
+            color: #FFFFFF;
+            line-height: 1.2;
+            white-space: nowrap;
+            display: inline-block;
+            max-width: 100%;
+        }
+
+        .title-sub {
+            font-size: clamp(14pt, 2vw, 18pt);
+            font-weight: 400;
+            color: #FFFFFF;
+            line-height: 1.6;
+        }
+
+        /* 底部信息区域 - 左移5% */
+        .slide-title-footer {
+            position: absolute;
+            left: 45%;
+            transform: translateX(-50%);
+            bottom: 60px;
+            text-align: center;
+            z-index: 10;
+        }
+
+        /* 人名 - 白色，18磅 */
+        .slide-title-author {
+            font-size: 18pt;
+            font-weight: 600;
+            color: #FFFFFF;
+            margin-bottom: 8px;
+        }
+
+        /* 文档创建时间 - 白色，18磅 */
+        .slide-title-time {
+            font-size: 18pt;
+            font-weight: 400;
+            color: #FFFFFF;
+        }
+
+        /* ===========================================
+           2. 内容页 / Content Slide
+           =========================================== */
+        .slide-content {
+            background: var(--bg-white);
+            padding: 60px 80px;
+        }
+
+        .kd-logo-right {
+            position: absolute;
+            top: 50px;
+            right: 60px;
+            height: 54px;
+            z-index: 10;
+        }
+
+        .content-header {
+            position: absolute;
+            top: 50px;
+            left: 80px;
+            right: 140px;
+            z-index: 10;
+        }
+
+        .content-title {
+            font-size: 28pt;
+            font-weight: 700;
+            line-height: 54px;
+            color: var(--text-primary);
+        }
+
+        .content-subtitle {
+            font-size: 16pt;
+            font-weight: 400;
+            color: var(--text-secondary);
+            margin-top: 16px;
+            margin-bottom: 30px;
+        }
+
+        .content-body {
+            font-size: 14pt;
+            line-height: 1.8;
+            color: var(--text-primary);
+            max-width: 90%;
+            margin-top: 100px;
+        }
+
+        .content-body ul {
+            list-style: none;
+            padding-left: 0;
+        }
+
+        .content-body li {
+            position: relative;
+            padding-left: 24px;
+            margin-bottom: 12px;
+        }
+
+        .content-body li::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 10px;
+            width: 8px;
+            height: 8px;
+            background: var(--kd-blue);
+            border-radius: 50%;
+        }
+
+        /* ===========================================
+           内容适配 / Content Adaptation
+           解决内容较少时页面下半部分空白的问题
+           =========================================== */
+
+        /* 内容垂直居中 - 适用于内容较少的页面 */
+        .content-body.centered {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            min-height: calc(100vh - 220px);  /* 减去header和footer */
+        }
+
+        /* 内容弹性分布 - 适用于内容中等的页面 */
+        .content-body.spread {
+            display: flex;
+            flex-direction: column;
+            justify-content: space-evenly;
+            min-height: calc(100vh - 220px);
+        }
+
+        /* 底部装饰条 - 可选，为空白区域增加视觉元素 */
+        .kd-bottom-accent {
+            position: absolute;
+            bottom: 80px;
+            left: 80px;
+            right: 80px;
+            height: 3px;
+            background: linear-gradient(90deg, var(--kd-blue) 0%, transparent 100%);
+            opacity: 0.3;
+            z-index: 5;
+        }
+
+        /* Two column layout */
+        .cols-2 {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 40px;
+            margin-top: 30px;
+        }
+
+        .kd-card {
+            background: var(--card-bg);
+            border-radius: 8px;
+            padding: 24px;
+        }
+
+        .kd-card-title {
+            font-size: 16pt;
+            font-weight: 600;
+            color: var(--kd-blue);
+            margin-bottom: 12px;
+        }
+
+        .kd-card-body {
+            font-size: 12pt;
+            color: var(--text-secondary);
+            line-height: 1.6;
+        }
+
+        /* ===========================================
+           3. 目录页 / TOC Slide
+           =========================================== */
+        .slide-toc {
+            background: var(--bg-white);
+            padding: 60px;
+            position: relative;
+        }
+
+        /* 全屏背景图 */
+        .kd-toc-image {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            z-index: 1;
+        }
+
+        /* 右上角 Logo - 放大50% (54px) */
+        .kd-logo-right-toc {
+            position: absolute;
+            top: 50px;
+            right: 60px;
+            height: 54px;
+            z-index: 10;
+        }
+
+        /* 目录标题 - 位置上移与logo齐平 */
+        .toc-title {
+            font-size: 24pt;
+            font-weight: 700;
+            line-height: 1.0;
+            color: var(--text-primary);
+            position: absolute;
+            top: 50px;
+            left: 80px;
+            z-index: 10;
+        }
+
+        /* 目录内容区域 */
+        .toc-content {
+            position: absolute;
+            left: 80px;
+            right: 60px;
+            top: 50%;
+            transform: translateY(-50%);
+            z-index: 5;
+            padding: 0;
+        }
+
+        /* 目录副标题 - 16磅 */
+        .toc-subtitle {
+            font-size: 16pt;
+            font-weight: 400;
+            color: var(--text-secondary);
+            margin-bottom: 30px;
+        }
+
+        /* 目录项容器 */
+        .toc-item {
+            display: flex;
+            align-items: center;
+            margin-bottom: 28px;
+            position: relative;
+        }
+
+        /* 目录序号 - 蓝色，54磅 */
+        .toc-number {
+            font-size: 54pt;
+            font-weight: 700;
+            color: var(--kd-blue);
+            margin-right: 24px;
+            min-width: 100px;
+            line-height: 1;
+        }
+
+        /* 目录内容 - 24磅，加粗 */
+        .toc-text {
+            font-size: 24pt;
+            font-weight: 700;
+            color: var(--text-primary);
+            flex: 1;
+        }
+
+        /* 目录页码 - 蓝色，加粗 */
+        .toc-page {
+            font-size: 20pt;
+            font-weight: 700;
+            color: var(--kd-blue);
+            position: absolute;
+            right: 90px;
+        }
+
+        /* ===========================================
+           4. 章节页 / Section Slide
+           =========================================== */
+        .slide-section {
+            background: var(--kd-blue);
+            display: flex;
+            align-items: flex-start;
+            position: relative;
+        }
+
+        /* 全屏背景图 */
+        .kd-section-image {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            z-index: 1;
+        }
+
+        /* 右上角 Logo */
+        .kd-logo-right-section {
+            position: absolute;
+            top: 50px;
+            right: 60px;
+            height: 54px;
+            z-index: 10;
+        }
+
+        /* 章节内容层 - 左上角定位 */
+        .section-content {
+            position: absolute;
+            top: 80px;
+            left: 80px;
+            z-index: 5;
+        }
+
+        /* 章节序号 - 125磅，天蓝色 */
+        .section-number {
+            font-size: clamp(60pt, 12vw, 125pt);
+            font-weight: 700;
+            color: #00CCFE;
+            line-height: 1;
+        }
+
+        /* 短横线 - 天蓝色 */
+        .section-divider {
+            width: 6em;
+            height: 8px;
+            background: #00CCFE;
+            margin: 20px 0;
+        }
+
+        /* 章节标题 - 24磅，白色 */
+        .section-title {
+            font-size: clamp(18pt, 2.5vw, 24pt);
+            font-weight: 700;
+            color: #FFFFFF;
+            line-height: 1.3;
+        }
+
+        /* ===========================================
+           5. 尾页 / Closing Slide（Cloudhub 专属）
+           =========================================== */
+        .slide-closing {
+            background: var(--bg-white);
+            position: relative;
+        }
+
+        /* ⭐ Cloudhub 专属：全屏背景图 */
+        .ch-closing-bg {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            z-index: 1;
+        }
+
+        /* 左上角 Logo - 使用白色Logo */
+        .kd-logo-left-closing {
+            position: absolute;
+            top: 40px;
+            left: 60px;
+            height: 40px;
+            z-index: 10;
+        }
+
+        /* ⭐ Cloudhub 专属：右上角 Slogan 图 - 与首页位置相同 */
+        .ch-closing-slogan {
+            position: absolute;
+            top: 40px;
+            right: 60px;
+            height: 48px;
+            z-index: 10;
+        }
+
+        /* ⭐ Cloudhub 专属：左侧感谢图 - 垂直居中 */
+        .ch-closing-thanks {
+            position: absolute;
+            top: 50%;
+            left: 10%;
+            transform: translateY(-50%);
+            max-height: 35%;
+            width: auto;
+            object-fit: contain;
+            z-index: 5;
+        }
+
+        /* ===========================================
+           版权信息与保密标识 / Copyright & Confidentiality
+           =========================================== */
+        /* 版权信息 - 左下角 */
+        .kd-copyright {
+            position: absolute;
+            bottom: 20px;
+            left: 60px;
+            font-size: 9.4pt;
+            color: #FFFFFF;
+            letter-spacing: 0.5px;
+            z-index: 10;
+        }
+
+        /* 版权信息 - 灰色版本（目录页/内容页使用） */
+        .kd-copyright-gray {
+            color: #808080;
+        }
+
+        /* 保密标识 - 右下角 */
+        .kd-confidential {
+            position: absolute;
+            bottom: 20px;
+            right: 60px;
+            font-size: 9.4pt;
+            color: #808080;
+            letter-spacing: 0.5px;
+            z-index: 10;
+        }
+
+        /* 保密标识 - 白色版本（首页/章节页/尾页使用） */
+        .kd-confidential-white {
+            color: #FFFFFF;
+        }
+
+        /* ===========================================
+           Navigation
+           =========================================== */
+        .nav-dots {
+            position: fixed;
+            right: 30px;
+            top: 50%;
+            transform: translateY(-50%);
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            z-index: 100;
+        }
+
+        .nav-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: var(--divider);
+            cursor: pointer;
+            transition: all 0.3s ease;
+            border: none;
+        }
+
+        .nav-dot.active {
+            background: var(--kd-blue);
+            transform: scale(1.3);
+        }
+
+        .nav-dot:hover {
+            background: var(--kd-blue);
+        }
+
+        /* ===========================================
+           Animation
+           =========================================== */
+        .kd-reveal {
+            opacity: 0;
+            transform: translateY(20px);
+            transition: opacity 0.5s ease, transform 0.5s ease;
+        }
+
+        .slide.visible .kd-reveal { opacity: 1; transform: translateY(0); }
+        .slide.visible .kd-reveal:nth-child(1) { transition-delay: 0.1s; }
+        .slide.visible .kd-reveal:nth-child(2) { transition-delay: 0.2s; }
+        .slide.visible .kd-reveal:nth-child(3) { transition-delay: 0.3s; }
+        .slide.visible .kd-reveal:nth-child(4) { transition-delay: 0.4s; }
+
+        @media (prefers-reduced-motion: reduce) {
+            .kd-reveal { transition: none; opacity: 1; transform: none; }
+        }
+
+        /* ===========================================
+           Responsive
+           =========================================== */
+        @media (max-width: 768px) {
+            .title-content { padding-left: 40px; max-width: 80%; }
+            .slide-content { padding: 40px; }
+            .kd-hero-image, .kd-closing-image { width: 100%; opacity: 0.15; }
+            .cols-2 { grid-template-columns: 1fr; }
+            .nav-dots { display: none; }
+            .ch-slogan { display: none; }  /* 移动端隐藏 slogan */
+        }
+    </style>
+</head>
+<!-- kai-html-export: data-export-progress="false" 表示导出 PPTX 时不包含导航装饰（圆点、进度条），
+     使导出的演示文稿更干净，适合交付。设为 "true" 可恢复导航元素导出。 -->
+<body data-export-progress="false">
+
+    <!-- 1. 首页 / Title Slide (Cloudhub 专属) -->
+    <section class="slide slide-title">
+        <!-- 全屏背景图 -->
+        <img class="kd-hero-image" src="https://static.yunzhijia.com/home/download/png/cloudhub_homepage.png" alt="首页全屏背景">
+        <!-- 左上角 Logo -->
+        <img class="kd-logo-left" src="https://static.yunzhijia.com/home/download/png/cloudhub_white.png" alt="Cloudhub 云之家 Logo">
+        <!-- ⭐ 右上角 Slogan 图（Cloudhub 专属） -->
+        <img class="ch-slogan" src="https://static.yunzhijia.com/home/download/png/Cloudhub_slogan2025.png" alt="云之家 Slogan">
+        <!-- 主标题（居中，单行显示） -->
+        <div class="title-content">
+            <h1 class="title-main kd-reveal">云之家 Cloudhub 企业数字化转型解决方案</h1>
+            <p class="title-sub kd-reveal">赋能企业，智领未来</p>
+        </div>
+        <!-- 底部信息（左移5%，只显示人名无前缀） -->
+        <div class="slide-title-footer kd-reveal">
+            <div class="slide-title-author">KClaw</div>
+            <div class="slide-title-time">2026年3月23日</div>
+        </div>
+        <!-- 版权信息 - 左下角，白色 -->
+        <div class="kd-copyright">版权所有©2026 云之家网络（重庆）有限公司</div>
+        <!-- 保密标识 - 右下角，白色 -->
+        <div class="kd-confidential kd-confidential-white">④内部公开 请勿外传</div>
+    </section>
+
+    <!-- 2. 目录页 / TOC Slide -->
+    <section class="slide slide-toc">
+        <img class="kd-toc-image" src="https://static.yunzhijia.com/home/download/png/kingdee_catalogue.png" alt="目录背景">
+        <img class="kd-logo-right-toc" src="https://static.yunzhijia.com/home/download/png/cloudhub_blue.png" alt="Cloudhub 云之家 Logo">
+        <h2 class="toc-title kd-reveal">目 录</h2>
+        <div class="toc-content">
+            <div class="toc-item kd-reveal">
+                <span class="toc-number">01</span>
+                <span class="toc-text">方案背景与挑战</span>
+                <span class="toc-page">P 03</span>
+            </div>
+            <div class="toc-item kd-reveal">
+                <span class="toc-number">02</span>
+                <span class="toc-text">解决方案架构</span>
+                <span class="toc-page">P 05</span>
+            </div>
+            <div class="toc-item kd-reveal">
+                <span class="toc-number">03</span>
+                <span class="toc-text">核心功能与价值</span>
+                <span class="toc-page">P 08</span>
+            </div>
+            <div class="toc-item kd-reveal">
+                <span class="toc-number">04</span>
+                <span class="toc-text">实施路径与案例</span>
+                <span class="toc-page">P 12</span>
+            </div>
+        </div>
+        <!-- 版权信息 - 左下角，灰色 -->
+        <div class="kd-copyright kd-copyright-gray">版权所有©2026 云之家网络（重庆）有限公司</div>
+        <!-- 保密标识 - 右下角，灰色 -->
+        <div class="kd-confidential">④内部公开 请勿外传</div>
+    </section>
+
+    <!-- 3. 章节页 / Section Slide -->
+    <section class="slide slide-section">
+        <img class="kd-section-image" src="https://static.yunzhijia.com/home/download/png/kingdee_chapter.png" alt="章节背景">
+        <img class="kd-logo-right-section" src="https://static.yunzhijia.com/home/download/png/cloudhub_white.png" alt="Cloudhub 云之家 Logo">
+        <div class="section-content">
+            <div class="section-number kd-reveal">01</div>
+            <div class="section-divider kd-reveal"></div>
+            <h2 class="section-title kd-reveal">方案背景与挑战</h2>
+        </div>
+        <!-- 版权信息 - 左下角，白色 -->
+        <div class="kd-copyright">版权所有©2026 云之家网络（重庆）有限公司</div>
+        <!-- 保密标识 - 右下角，白色 -->
+        <div class="kd-confidential kd-confidential-white">④内部公开 请勿外传</div>
+    </section>
+
+    <!-- 4. 内容页 / Content Slide -->
+    <section class="slide slide-content">
+        <img class="kd-logo-right" src="https://static.yunzhijia.com/home/download/png/cloudhub_blue.png" alt="Cloudhub 云之家 Logo">
+        <div class="content-header">
+            <h2 class="content-title kd-reveal">当前企业面临的挑战</h2>
+            <p class="content-subtitle kd-reveal">数字化转型中的核心痛点</p>
+        </div>
+        <div class="content-body">
+            <ul>
+                <li class="kd-reveal">数据孤岛严重，系统间难以互联互通</li>
+                <li class="kd-reveal">业务流程复杂，响应速度慢</li>
+                <li class="kd-reveal">决策缺乏数据支撑，管理效率低下</li>
+                <li class="kd-reveal">IT系统老旧，升级改造成本高</li>
+            </ul>
+            <div class="cols-2">
+                <div class="kd-card kd-reveal">
+                    <h3 class="kd-card-title">效率提升需求</h3>
+                    <p class="kd-card-body">企业迫切需要通过数字化手段提升运营效率，降低人工成本。</p>
+                </div>
+                <div class="kd-card kd-reveal">
+                    <h3 class="kd-card-title">数据驱动决策</h3>
+                    <p class="kd-card-body">从经验决策向数据驱动决策转变，需要完善的数据分析能力。</p>
+                </div>
+            </div>
+        </div>
+        <!-- 版权信息 - 左下角，灰色 -->
+        <div class="kd-copyright kd-copyright-gray">版权所有©2026 云之家网络（重庆）有限公司</div>
+        <!-- 保密标识 - 右下角，灰色 -->
+        <div class="kd-confidential">④内部公开 请勿外传</div>
+    </section>
+
+    <!-- 5. 尾页 / Closing Slide（Cloudhub 专属） -->
+    <section class="slide slide-closing">
+        <img class="ch-closing-bg" src="https://static.yunzhijia.com/home/download/png/cloudhub_endpage.png" alt="尾页全屏背景">
+        <img class="kd-logo-left-closing" src="https://static.yunzhijia.com/home/download/png/cloudhub_white.png" alt="Cloudhub 云之家 Logo">
+        <img class="ch-closing-slogan" src="https://static.yunzhijia.com/home/download/png/Cloudhub_slogan2025.png" alt="云之家 Slogan">
+        <img class="ch-closing-thanks" src="https://static.yunzhijia.com/home/download/png/cloudhub_thanks.png" alt="感谢">
+        <!-- 版权信息 - 左下角，白色 -->
+        <div class="kd-copyright">版权所有©2026 云之家网络（重庆）有限公司</div>
+        <!-- 保密标识 - 右下角，白色 -->
+        <div class="kd-confidential kd-confidential-white">④内部公开 请勿外传</div>
+    </section>
+
+    <!-- Navigation Dots -->
+    <nav class="nav-dots">
+        <button class="nav-dot active" data-slide="0" aria-label="首页"></button>
+        <button class="nav-dot" data-slide="1" aria-label="目录"></button>
+        <button class="nav-dot" data-slide="2" aria-label="章节"></button>
+        <button class="nav-dot" data-slide="3" aria-label="内容"></button>
+        <button class="nav-dot" data-slide="4" aria-label="尾页"></button>
+    </nav>
+
+    <script>
+        // Slide visibility observer
+        const slides = document.querySelectorAll('.slide');
+        const dots = document.querySelectorAll('.nav-dot');
+
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    entry.target.classList.add('visible');
+                    const index = Array.from(slides).indexOf(entry.target);
+                    dots.forEach((dot, i) => {
+                        dot.classList.toggle('active', i === index);
+                    });
+                }
+            });
+        }, { threshold: 0.5 });
+
+        slides.forEach(slide => observer.observe(slide));
+
+        // Navigation click
+        dots.forEach(dot => {
+            dot.addEventListener('click', () => {
+                const slideIndex = parseInt(dot.dataset.slide);
+                slides[slideIndex].scrollIntoView({ behavior: 'smooth' });
+            });
+        });
+
+        // Keyboard navigation
+        document.addEventListener('keydown', (e) => {
+            const currentIndex = Array.from(slides).findIndex(s => s.classList.contains('visible'));
+            if (e.key === 'ArrowRight' || e.key === 'ArrowDown' || e.key === ' ') {
+                e.preventDefault();
+                const next = Math.min(currentIndex + 1, slides.length - 1);
+                slides[next].scrollIntoView({ behavior: 'smooth' });
+            } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
+                e.preventDefault();
+                const prev = Math.max(currentIndex - 1, 0);
+                slides[prev].scrollIntoView({ behavior: 'smooth' });
+            }
+        });
+    </script>
+</body>
+</html>
