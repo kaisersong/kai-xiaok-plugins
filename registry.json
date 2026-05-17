@@ -28,7 +28,7 @@
     {
       "name": "kai-report-creator",
       "display_name": "报告生成器",
-      "description": "高质量 HTML 报告，6 套主题，零依赖单文件",
+      "description": "高质量 HTML 报告，8 套主题，零依赖单文件",
       "category": "content-creation",
       "keywords": [
         "report",
