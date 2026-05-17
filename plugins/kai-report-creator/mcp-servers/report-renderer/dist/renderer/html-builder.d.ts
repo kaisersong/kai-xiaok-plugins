@@ -6,6 +6,7 @@ export interface RenderResult {
         l0: boolean;
         l1: boolean;
         l2: boolean;
+        l3: boolean;
     };
     warnings: string[];
     stats: {

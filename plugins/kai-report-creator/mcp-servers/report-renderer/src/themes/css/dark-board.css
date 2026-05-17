@@ -28,13 +28,7 @@ section[data-section]:nth-child(6n) { --section-accent: var(--accent-6); }
 /* Dense KPI grid for board layout */
 .kpi-grid { grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: .6rem; margin: .75rem 0; }
 .kpi-card { padding: .75rem .6rem; }
-/* Dark-mode callouts */
 .callout--note { background: #161B22; border-color: #58A6FF; }
-.callout--tip { background: #13261A; border-color: #3FB950; }
-.callout--warning { background: #261D0D; border-color: #D29922; }
-.callout--danger { background: #2D1212; border-color: #F85149; }
-.callout-body { color: var(--text); }
-/* Dark-mode summary card */
 .sc-card { background: var(--surface); border-color: var(--border); }
 .sc-close { background: rgba(255,255,255,.1); border-color: rgba(255,255,255,.2); color: var(--text); }
 .sc-close:hover { background: rgba(255,255,255,.2); }

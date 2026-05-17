@@ -60,6 +60,15 @@ describe('validateBlock - KPI', () => {
     );
     expect(result.status).toBe('invalid_semantics');
   });
+
+  it('rejects KPI values that do not contain a real number', () => {
+    const result = validateBlock(
+      { tag: 'kpi', params: {}, body: 'items:\n  - label: 项目状态\n    value: 完成\n    trend: 状态值', lineStart: 0, lineEnd: 4 },
+      'mixed',
+    );
+    expect(result.status).toBe('invalid_semantics');
+    expect(result.message).toContain('real number');
+  });
 });
 
 describe('validateBlock - Timeline', () => {

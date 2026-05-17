@@ -8,7 +8,7 @@ metadata: {"openclaw": {"emoji": "📊"}}
 
 # kai-report-creator
 
-Compose `.report.md` IR (Intermediate Representation) content that describes report structure, then render to HTML via the MCP report-renderer tools. The IR is passed directly as a string — never saved to disk.
+Compose `.report.md` IR (Intermediate Representation) content that describes report structure, then render to HTML via the MCP report-renderer tools. The IR is passed directly as a string — never saved to disk. This plugin mirrors the standalone `kai-report-creator` quality contract while keeping rendering inside the MCP server.
 
 ## ⛔ HARD CONSTRAINT — DO NOT VIOLATE
 
@@ -33,6 +33,8 @@ Your job: Compose IR in memory → Call `mcp__report-renderer__render_report` wi
 6. **Done** → The HTML file is the ONLY final artifact delivered to the user
 
 **CRITICAL**: Step 5 (render) is MANDATORY. Never stop after validation. If validation still fails after one fix attempt, render anyway — the renderer handles minor issues gracefully.
+
+The renderer runs output gates after rendering: no raw `:::` leakage, shell metadata, required TOC/summary/export/edit IDs, and real numeric KPI values in both visible cards and `report-summary`.
 
 **NO INTERMEDIATE FILES**: Do NOT use the `Write` tool to save `.report.md` or any other intermediate file. The `ir_content` parameter of `render_report` accepts the IR string directly. The user should only see the final `.html` file in their Downloads/working directory.
 
@@ -82,12 +84,14 @@ Prose text between blocks.
 
 ## Available Themes
 
-- `corporate-blue` — Professional blue (default)
+- `corporate-blue` — Professional business theme (default)
 - `minimal` — Clean white, minimal accents
 - `dark-tech` — Dark mode, tech-focused
 - `dark-board` — Dark mode, dashboard style
 - `data-story` — Colorful data storytelling
 - `newspaper` — Print-inspired serif layout
+- `regular-lumen` — Warm editorial consulting layout
+- `fangsong` — Chinese fangsong editorial layout
 
 ## MCP Tool Reference
 
@@ -104,7 +108,7 @@ The following tools are available as `mcp__report-renderer__<tool_name>`:
 
 1. **Never generate HTML yourself** — Only generate IR. The renderer handles HTML deterministically.
 2. **Always render after generating IR** — The HTML file is the deliverable, not the IR.
-3. **Never fabricate data** — Use `[INSERT VALUE]` placeholders if data is missing.
+3. **Never fabricate data** — Use `[INSERT VALUE]` placeholders if data is missing, but never inside KPI `value`; downgrade that KPI to `callout`, `list`, or `table` until a real number is available.
 4. **One component per block** — Each `:::` block contains exactly one component.
 5. **Timeline = chronological only** — Items must have temporal ordering. Use `list` for non-sequential items.
 6. **Diagram = directional only** — Use only when showing flow/dependency/branching. Use `callout` for parallel points.
@@ -124,7 +128,7 @@ The following tools are available as `mcp__report-renderer__<tool_name>`:
    - `<div class="section-quote">Notable quote or insight</div>` — rounded card with gradient background
    - `<div class="action-grid"><div class="action-card"><strong>Title</strong><p>Description</p></div>...</div>` — 2-column action card grid
 5. **Badge usage** — Use `<span class="badge badge--green">Label</span>` for status/category tags. Available variants: `badge--blue`, `badge--green`, `badge--purple`, `badge--orange`, `badge--red`, `badge--gray`, `badge--teal`, `badge--done`, `badge--wip`, `badge--todo`, `badge--ok`, `badge--warn`, `badge--err`.
-6. **KPI value quality** — KPI `value` must be a short number (≤8 chars), never a sentence. ❌ `value: 完成了12个任务` ✅ `value: 12`
+6. **KPI value quality** — KPI `value` must contain a real number and be short (≤8 chars preferred), never a status word or sentence. ❌ `value: 完成` ❌ `value: 完成了12个任务` ✅ `value: 12`
 7. **Text wall guard** — If a section has >3 consecutive plain prose paragraphs with no component or visual anchor, insert a cadence block (highlight-sentence, lead-block, or callout) to break monotony.
 8. **Scan-anchor per section** — Every `## Section` must contain at least one visual scan anchor: a `:::kpi`, `:::chart`, `:::table`, badge, or cadence block. Pure text sections are not allowed.
 9. **Summary Card** — Set `poster_title` (short, impactful, ≤6 chars ideal), `poster_subtitle`, and `poster_note` in frontmatter. These populate the summary card poster view accessed via the "⊞ 摘要卡" button.

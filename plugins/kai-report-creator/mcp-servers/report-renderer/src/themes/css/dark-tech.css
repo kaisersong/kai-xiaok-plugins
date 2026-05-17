@@ -13,16 +13,9 @@ h3 { font-size: 1.1rem; font-weight: 600; color: var(--accent); margin-top: 1.1r
 p { margin: .5rem 0; } a { color: var(--primary); }
 strong { font-weight: 700; color: var(--accent); } blockquote { border-left: 2px solid var(--border); margin: .75rem 0; padding: .5rem 1rem; color: var(--text-muted); font-family: var(--font-mono); font-size: .9rem; }
 
-/* Note: dark-tech uses github-dark.min.css for code blocks (not github.min.css) */
-
 /* === POST-SHARED OVERRIDE (append AFTER shared.css) === */
-/* Dark-mode callouts */
 .callout--note { background: #1E293B; border-color: #6366F1; }
-.callout--tip { background: #1A2E1F; border-color: #34D399; }
-.callout--warning { background: #2A2215; border-color: #FCD34D; }
-.callout--danger { background: #2D1515; border-color: #F87171; }
-.callout-body { color: var(--text); }
-/* Dark-mode summary card */
 .sc-card { background: var(--surface); border-color: var(--border); }
 .sc-close { background: rgba(255,255,255,.1); border-color: rgba(255,255,255,.2); color: var(--text); }
 .sc-close:hover { background: rgba(255,255,255,.2); }
+/* Note: dark-tech uses github-dark.min.css for code blocks (not github.min.css) */

@@ -108,4 +108,29 @@ describe('renderReport', () => {
     const validationWarnings = result.warnings.filter(w => w.includes('validation'));
     expect(validationWarnings).toHaveLength(0);
   });
+
+  it('fails output validation when KPI values are status text instead of numbers', () => {
+    const invalidKpiIR = `---
+title: KPI Gate Test
+theme: corporate-blue
+lang: zh
+report_class: mixed
+date: 2026-05-17
+---
+
+## 核心指标
+
+:::kpi
+items:
+  - label: 项目状态
+    value: 完成
+    trend: 状态值
+:::
+
+这个指标应该被拒绝，因为 KPI value 不是可量化数字。
+`;
+    const result = renderReport({ irContent: invalidKpiIR, outputPath });
+    expect(result.success).toBe(false);
+    expect(result.warnings.some(w => w.includes('KPI') || w.includes('kpi'))).toBe(true);
+  });
 });

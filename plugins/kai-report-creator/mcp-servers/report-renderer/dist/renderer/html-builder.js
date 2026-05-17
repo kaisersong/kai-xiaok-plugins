@@ -161,6 +161,8 @@ export function renderReport(input) {
         warnings.push('L1 validation failed: shell structure incomplete');
     if (!validation.l2)
         warnings.push('L2 validation failed: missing required IDs');
+    if (!validation.l3)
+        warnings.push(`L3 validation failed: ${validation.qualityFindings.join('; ')}`);
     // Write file
     const outputPath = input.outputPath ?? `report-${doc.frontmatter.date || 'output'}.html`;
     try {
@@ -170,10 +172,10 @@ export function renderReport(input) {
         warnings.push(`Failed to write file: ${e.message}`);
     }
     return {
-        success: validation.l0 && validation.l1 && validation.l2,
+        success: validation.l0 && validation.l1 && validation.l2 && validation.l3,
         outputPath,
         html,
-        validation: { l0: validation.l0, l1: validation.l1, l2: validation.l2 },
+        validation: { l0: validation.l0, l1: validation.l1, l2: validation.l2, l3: validation.l3 },
         warnings,
         stats: {
             sections: doc.sections.length,
@@ -216,7 +218,44 @@ function validateOutput(html) {
         'export-im-share', 'report-summary',
     ];
     const l2 = requiredIds.every(id => html.includes(`id="${id}"`));
-    return { l0: l0Pass, l1, l2 };
+    const qualityFindings = validateKpiValues(html);
+    const l3 = qualityFindings.length === 0;
+    return { l0: l0Pass, l1, l2, l3, qualityFindings };
+}
+const PLACEHOLDER_RE = /\[(?:INSERT VALUE|数据待填写)\]/;
+function hasRealNumber(value) {
+    return /\d/.test(value) && !PLACEHOLDER_RE.test(value);
+}
+function stripTags(fragment) {
+    return fragment.replace(/<[^>]+>/g, '').trim();
+}
+function validateKpiValues(html) {
+    const findings = [];
+    const kpiValuePattern = /<div\b[^>]*class="[^"]*\bkpi-value\b[^"]*"[^>]*>(.*?)<\/div>/gs;
+    for (const match of html.matchAll(kpiValuePattern)) {
+        const value = stripTags(match[1] ?? '');
+        if (!hasRealNumber(value))
+            findings.push(`invalid KPI value "${value}"`);
+    }
+    const summaryMatch = html.match(/<script\b[^>]*id="report-summary"[^>]*>\s*([\s\S]*?)\s*<\/script>/);
+    if (!summaryMatch) {
+        findings.push('missing report-summary JSON');
+        return findings;
+    }
+    try {
+        const summary = JSON.parse(summaryMatch[1] ?? '{}');
+        if (Array.isArray(summary.kpis)) {
+            for (const item of summary.kpis) {
+                const value = String(item?.value ?? '').trim();
+                if (value && !hasRealNumber(value))
+                    findings.push(`invalid summary KPI value "${value}"`);
+            }
+        }
+    }
+    catch {
+        findings.push('invalid report-summary JSON');
+    }
+    return findings;
 }
 function extractKpis(doc) {
     const kpis = [];

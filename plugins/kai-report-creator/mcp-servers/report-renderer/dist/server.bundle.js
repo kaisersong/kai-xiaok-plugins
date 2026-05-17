@@ -33840,6 +33840,7 @@ var TIMELINE_DATE_PATTERNS = [
   // 第一季度
 ];
 var PLACEHOLDER_RE = /\[(?:INSERT VALUE|数据待填写)\]/;
+var HAS_REAL_NUMBER_RE = /\d/;
 function validateBlocks(blocks, reportClass) {
   const errors = [];
   const componentSummary = {};
@@ -33905,6 +33906,12 @@ function validateKpi(body, reportClass) {
         return {
           status: "invalid_semantics",
           message: `KPI value too long (${value.length} chars, max 24): "${value}"`
+        };
+      }
+      if (!HAS_REAL_NUMBER_RE.test(value) || PLACEHOLDER_RE.test(value)) {
+        return {
+          status: "invalid_semantics",
+          message: `KPI value must contain a real number: "${value}"`
         };
       }
       const cjkChars = value.match(/[\u4e00-\u9fff]/g);
@@ -34294,7 +34301,9 @@ var BUILTIN_THEMES = [
   "dark-tech",
   "dark-board",
   "data-story",
-  "newspaper"
+  "newspaper",
+  "regular-lumen",
+  "fangsong"
 ];
 var cache = /* @__PURE__ */ new Map();
 function loadTheme(themeName) {
@@ -35618,6 +35627,8 @@ function renderReport(input) {
     warnings.push("L1 validation failed: shell structure incomplete");
   if (!validation.l2)
     warnings.push("L2 validation failed: missing required IDs");
+  if (!validation.l3)
+    warnings.push(`L3 validation failed: ${validation.qualityFindings.join("; ")}`);
   const outputPath = input.outputPath ?? `report-${doc.frontmatter.date || "output"}.html`;
   try {
     writeFileSync(outputPath, html, "utf-8");
@@ -35625,10 +35636,10 @@ function renderReport(input) {
     warnings.push(`Failed to write file: ${e.message}`);
   }
   return {
-    success: validation.l0 && validation.l1 && validation.l2,
+    success: validation.l0 && validation.l1 && validation.l2 && validation.l3,
     outputPath,
     html,
-    validation: { l0: validation.l0, l1: validation.l1, l2: validation.l2 },
+    validation: { l0: validation.l0, l1: validation.l1, l2: validation.l2, l3: validation.l3 },
     warnings,
     stats: {
       sections: doc.sections.length,
@@ -35685,7 +35696,43 @@ function validateOutput(html) {
     "report-summary"
   ];
   const l2 = requiredIds.every((id) => html.includes(`id="${id}"`));
-  return { l0: l0Pass, l1, l2 };
+  const qualityFindings = validateKpiValues(html);
+  const l3 = qualityFindings.length === 0;
+  return { l0: l0Pass, l1, l2, l3, qualityFindings };
+}
+var PLACEHOLDER_RE2 = /\[(?:INSERT VALUE|数据待填写)\]/;
+function hasRealNumber(value) {
+  return /\d/.test(value) && !PLACEHOLDER_RE2.test(value);
+}
+function stripTags(fragment) {
+  return fragment.replace(/<[^>]+>/g, "").trim();
+}
+function validateKpiValues(html) {
+  const findings = [];
+  const kpiValuePattern = /<div\b[^>]*class="[^"]*\bkpi-value\b[^"]*"[^>]*>(.*?)<\/div>/gs;
+  for (const match of html.matchAll(kpiValuePattern)) {
+    const value = stripTags(match[1] ?? "");
+    if (!hasRealNumber(value))
+      findings.push(`invalid KPI value "${value}"`);
+  }
+  const summaryMatch = html.match(/<script\b[^>]*id="report-summary"[^>]*>\s*([\s\S]*?)\s*<\/script>/);
+  if (!summaryMatch) {
+    findings.push("missing report-summary JSON");
+    return findings;
+  }
+  try {
+    const summary = JSON.parse(summaryMatch[1] ?? "{}");
+    if (Array.isArray(summary.kpis)) {
+      for (const item of summary.kpis) {
+        const value = String(item?.value ?? "").trim();
+        if (value && !hasRealNumber(value))
+          findings.push(`invalid summary KPI value "${value}"`);
+      }
+    }
+  } catch {
+    findings.push("invalid report-summary JSON");
+  }
+  return findings;
 }
 function extractKpis(doc) {
   const kpis = [];

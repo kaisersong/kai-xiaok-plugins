@@ -20,7 +20,7 @@ export interface RenderResult {
   success: boolean;
   outputPath: string;
   html: string;
-  validation: { l0: boolean; l1: boolean; l2: boolean };
+  validation: { l0: boolean; l1: boolean; l2: boolean; l3: boolean };
   warnings: string[];
   stats: { sections: number; components: number; cssBytes: number; htmlBytes: number };
 }
@@ -193,6 +193,7 @@ export function renderReport(input: RenderInput): RenderResult {
   if (!validation.l0) warnings.push('L0 validation failed: possible ::: leakage or missing ir-hash');
   if (!validation.l1) warnings.push('L1 validation failed: shell structure incomplete');
   if (!validation.l2) warnings.push('L2 validation failed: missing required IDs');
+  if (!validation.l3) warnings.push(`L3 validation failed: ${validation.qualityFindings.join('; ')}`);
 
   // Write file
   const outputPath = input.outputPath ?? `report-${doc.frontmatter.date || 'output'}.html`;
@@ -203,10 +204,10 @@ export function renderReport(input: RenderInput): RenderResult {
   }
 
   return {
-    success: validation.l0 && validation.l1 && validation.l2,
+    success: validation.l0 && validation.l1 && validation.l2 && validation.l3,
     outputPath,
     html,
-    validation: { l0: validation.l0, l1: validation.l1, l2: validation.l2 },
+    validation: { l0: validation.l0, l1: validation.l1, l2: validation.l2, l3: validation.l3 },
     warnings,
     stats: {
       sections: doc.sections.length,
@@ -233,7 +234,7 @@ function renderBlock(block: IRBlock, options: RenderOptions): string {
 }
 
 // HTML output validation
-interface ValidationResult { l0: boolean; l1: boolean; l2: boolean }
+interface ValidationResult { l0: boolean; l1: boolean; l2: boolean; l3: boolean; qualityFindings: string[] }
 
 function validateOutput(html: string): ValidationResult {
   // L0: No ::: leakage, ir-hash exists
@@ -256,8 +257,49 @@ function validateOutput(html: string): ValidationResult {
     'export-im-share', 'report-summary',
   ];
   const l2 = requiredIds.every(id => html.includes(`id="${id}"`));
+  const qualityFindings = validateKpiValues(html);
+  const l3 = qualityFindings.length === 0;
 
-  return { l0: l0Pass, l1, l2 };
+  return { l0: l0Pass, l1, l2, l3, qualityFindings };
+}
+
+const PLACEHOLDER_RE = /\[(?:INSERT VALUE|数据待填写)\]/;
+
+function hasRealNumber(value: string): boolean {
+  return /\d/.test(value) && !PLACEHOLDER_RE.test(value);
+}
+
+function stripTags(fragment: string): string {
+  return fragment.replace(/<[^>]+>/g, '').trim();
+}
+
+function validateKpiValues(html: string): string[] {
+  const findings: string[] = [];
+  const kpiValuePattern = /<div\b[^>]*class="[^"]*\bkpi-value\b[^"]*"[^>]*>(.*?)<\/div>/gs;
+  for (const match of html.matchAll(kpiValuePattern)) {
+    const value = stripTags(match[1] ?? '');
+    if (!hasRealNumber(value)) findings.push(`invalid KPI value "${value}"`);
+  }
+
+  const summaryMatch = html.match(/<script\b[^>]*id="report-summary"[^>]*>\s*([\s\S]*?)\s*<\/script>/);
+  if (!summaryMatch) {
+    findings.push('missing report-summary JSON');
+    return findings;
+  }
+
+  try {
+    const summary = JSON.parse(summaryMatch[1] ?? '{}') as { kpis?: Array<{ value?: unknown }> };
+    if (Array.isArray(summary.kpis)) {
+      for (const item of summary.kpis) {
+        const value = String(item?.value ?? '').trim();
+        if (value && !hasRealNumber(value)) findings.push(`invalid summary KPI value "${value}"`);
+      }
+    }
+  } catch {
+    findings.push('invalid report-summary JSON');
+  }
+
+  return findings;
 }
 
 function extractKpis(doc: IRDocument): Array<{ label: string; value: string; trend: string }> {
@@ -281,4 +323,3 @@ function extractKpis(doc: IRDocument): Array<{ label: string; value: string; tre
   }
   return kpis.slice(0, 6);
 }
-

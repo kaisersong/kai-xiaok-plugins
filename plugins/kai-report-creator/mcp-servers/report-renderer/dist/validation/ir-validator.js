@@ -14,6 +14,7 @@ const TIMELINE_DATE_PATTERNS = [
     /^第[一二三四]季度$/, // 第一季度
 ];
 const PLACEHOLDER_RE = /\[(?:INSERT VALUE|数据待填写)\]/;
+const HAS_REAL_NUMBER_RE = /\d/;
 /**
  * Validate all blocks in a document.
  */
@@ -92,6 +93,12 @@ function validateKpi(body, reportClass) {
                 return {
                     status: 'invalid_semantics',
                     message: `KPI value too long (${value.length} chars, max 24): "${value}"`,
+                };
+            }
+            if (!HAS_REAL_NUMBER_RE.test(value) || PLACEHOLDER_RE.test(value)) {
+                return {
+                    status: 'invalid_semantics',
+                    message: `KPI value must contain a real number: "${value}"`,
                 };
             }
             // Check Chinese char count

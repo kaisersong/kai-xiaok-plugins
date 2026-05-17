@@ -3,7 +3,7 @@
   "version": "2.0.0",
   "interface": {
     "display_name": "报告生成器",
-    "short_description": "高质量 HTML 报告，零依赖单文件，6 套主题",
+    "short_description": "高质量 HTML 报告，零依赖单文件，8 套主题",
     "category": "content-creation",
     "capabilities": ["report-planning", "html-rendering", "theme-system"],
     "keywords": ["report", "html", "chart", "kpi", "dashboard"]

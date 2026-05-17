@@ -49,6 +49,10 @@ function runEval(irPath: string): EvalResult {
   scores['l2_ids'] = result.validation.l2 ? rubric.scoring.l2_ids.weight : 0;
   if (!result.validation.l2) errors.push('L2 failed: missing required IDs');
 
+  // Score L3
+  scores['l3_output_quality'] = result.validation.l3 ? rubric.scoring.l3_output_quality.weight : 0;
+  if (!result.validation.l3) errors.push('L3 failed: KPI values or report-summary metrics are not numeric');
+
   // Score component accuracy (check no "unknown component" or empty comments)
   const unknownCount = (result.html.match(/<!-- unknown component/g) ?? []).length;
   const emptyCount = (result.html.match(/<!-- empty/g) ?? []).length;

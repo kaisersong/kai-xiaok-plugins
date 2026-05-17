@@ -6,6 +6,7 @@ const cssDir = join(__dirname, 'css');
 const BUILTIN_THEMES = [
     'corporate-blue', 'minimal', 'dark-tech',
     'dark-board', 'data-story', 'newspaper',
+    'regular-lumen', 'fangsong',
 ];
 const cache = new Map();
 export function loadTheme(themeName) {

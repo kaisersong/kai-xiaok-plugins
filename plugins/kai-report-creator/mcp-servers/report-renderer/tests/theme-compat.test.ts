@@ -12,8 +12,17 @@ const validIR = readFileSync(join(fixturesDir, 'valid-mixed.report.md'), 'utf-8'
 describe('Theme CSS loading and assembly', () => {
   const themes = getBuiltinThemes();
 
-  it('should load all 6 builtin themes', () => {
-    expect(themes).toHaveLength(6);
+  it('should load all 8 builtin themes shared with standalone report-creator', () => {
+    expect(themes).toEqual([
+      'corporate-blue',
+      'minimal',
+      'dark-tech',
+      'dark-board',
+      'data-story',
+      'newspaper',
+      'regular-lumen',
+      'fangsong',
+    ]);
     for (const name of themes) {
       const theme = loadTheme(name);
       expect(theme.name).toBe(name);
@@ -28,7 +37,7 @@ describe('Theme CSS loading and assembly', () => {
   });
 
   describe('CSS assembly order: base → shared → post-shared', () => {
-    const themesWithPostShared = ['dark-board', 'data-story', 'newspaper', 'dark-tech'];
+    const themesWithPostShared = ['dark-board', 'data-story', 'newspaper', 'regular-lumen', 'fangsong'];
 
     for (const name of themesWithPostShared) {
       it(`${name}: POST-SHARED OVERRIDE comes after shared.css`, () => {
