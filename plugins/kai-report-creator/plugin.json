@@ -1,6 +1,6 @@
 {
   "name": "kai-report-creator",
-  "version": "2.0.0",
+  "version": "2.1.0",
   "interface": {
     "display_name": "报告生成器",
     "short_description": "高质量 HTML 报告，零依赖单文件，8 套主题",

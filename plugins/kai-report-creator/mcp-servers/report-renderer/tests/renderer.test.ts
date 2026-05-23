@@ -64,6 +64,67 @@ describe('renderReport', () => {
     expect(result.html).toContain('AI 个性化推荐');
   });
 
+  it('renders markdown prose structures instead of leaking source markdown', () => {
+    const markdownIR = `---
+title: Markdown Source Report
+theme: corporate-blue
+lang: zh
+report_class: mixed
+date: 2026-05-21
+---
+
+## 报告正文
+
+### 关键判断
+
+- **治理优先**：先治理再规模化。
+- 生态杠杆需要单独预算。
+
+1. 建立 Agent 治理运行时。
+2. 结构化行业 Know-how。
+
+| 维度 | 结论 |
+|---|---|
+| 护城河 | **业务对象语义层** |
+
+正文包含 \`report_html\` 输出说明。
+`;
+
+    const result = renderReport({ irContent: markdownIR, outputPath });
+
+    expect(result.success).toBe(true);
+    expect(result.html).toContain('<h3 id="section-关键判断">关键判断</h3>');
+    expect(result.html).toContain('<ul class="report-list styled-list');
+    expect(result.html).toContain('<ol class="report-list styled-list');
+    expect(result.html).toContain('<table class="report-table">');
+    expect(result.html).toContain('<strong>业务对象语义层</strong>');
+    expect(result.html).toContain('<code>report_html</code>');
+    expect(result.html).not.toContain('|---|---|');
+    expect(result.html).not.toContain('**业务对象语义层**');
+  });
+
+  it('keeps prose quotation marks readable while escaping unsafe HTML', () => {
+    const markdownIR = `---
+title: Quote Escape Report
+theme: corporate-blue
+lang: zh
+report_class: mixed
+date: 2026-05-21
+---
+
+## 正文
+
+金蝶完成了"架构级转身"，但不能输出 <script>alert(1)</script>。
+`;
+
+    const result = renderReport({ irContent: markdownIR, outputPath });
+
+    expect(result.success).toBe(true);
+    expect(result.html).toContain('<p class="fade-in-up">金蝶完成了"架构级转身"');
+    expect(result.html).not.toContain('<p class="fade-in-up">金蝶完成了&quot;架构级转身&quot;');
+    expect(result.html).toContain('&lt;script&gt;alert(1)&lt;/script&gt;');
+  });
+
   it('should render callout component correctly', () => {
     const result = renderReport({ irContent: validIR, outputPath });
     expect(result.html).toContain('callout callout--tip');

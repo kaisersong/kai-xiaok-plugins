@@ -1,4 +1,4 @@
-import { escHtml } from './escape.js';
+import { escHtml, escHtmlText } from './escape.js';
 
 export interface ShellOptions {
   title: string;
@@ -64,7 +64,7 @@ ${tocToggle}${tocSidebar}
     <div class="main-with-toc">
       <div class="report-wrapper">
         <div class="title-row">
-          <h1>${escHtml(opts.title)}</h1>
+          <h1>${escHtmlText(opts.title)}</h1>
           <button id="card-mode-btn" class="card-mode-btn" title="${cardBtnTitle}">${cardBtnText}</button>
         </div>${metaLine}
 
@@ -91,7 +91,7 @@ function buildTocSidebar(items: ShellOptions['tocItems'], lang: string): string 
   const navLabel = lang === 'zh' ? '报告目录' : 'Report contents';
   const links = items.map(item => {
     const h3Class = item.level === 3 ? ' class="toc-h3"' : '';
-    return `      <a href="#section-${item.slug}" data-section="${escHtml(item.text)}"${h3Class}>${escHtml(item.text)}</a>`;
+    return `      <a href="#section-${item.slug}" data-section="${escHtml(item.text)}"${h3Class}>${escHtmlText(item.text)}</a>`;
   }).join('\n');
 
   return `    <nav class="toc-sidebar" id="toc-sidebar" aria-label="${navLabel}">
@@ -425,4 +425,3 @@ function buildSummaryCardScript(): string {
     })();
     </script>`;
 }
-

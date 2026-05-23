@@ -2,7 +2,7 @@ import { createHash } from 'node:crypto';
 import { writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { parseDocument, type IRDocument, type IRBlock } from '../parser/ir-parser.js';
-import { escHtml } from './escape.js';
+import { escHtml, escHtmlPreserveInline, escHtmlText } from './escape.js';
 import { loadTheme, assembleCSS } from '../themes/loader.js';
 import { buildHtmlShell, type ShellOptions } from './shell.js';
 import { renderKpi } from './components/kpi.js';
@@ -63,7 +63,7 @@ export function renderReport(input: RenderInput): RenderResult {
     })?.trim() ?? '').replace(/<[^>]+>/g, '');
 
     bodyParts.push(`        <section data-section="${escHtml(section.heading)}" data-summary="${escHtml(summary)}" id="section-${slug}">`);
-    bodyParts.push(`          <h${section.level} id="section-${slug}">${escHtml(section.heading)}</h${section.level}>`);
+    bodyParts.push(`          <h${section.level} id="section-${slug}">${escHtmlText(section.heading)}</h${section.level}>`);
 
     // Render content in document order: prose and blocks interleaved
     const lines = section.content.split('\n');
@@ -90,13 +90,14 @@ export function renderReport(input: RenderInput): RenderResult {
           }
         } else {
           const proseClass = animations ? ' class="fade-in-up"' : '';
-          bodyParts.push(`          <p${proseClass}>${text}</p>`);
+          bodyParts.push(`          <p${proseClass}>${renderInlineMarkdown(text)}</p>`);
         }
       }
       proseBuffer = [];
     };
 
-    for (const line of lines) {
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i]!;
       const trimmed = line.trim();
 
       // Skip section headings (already rendered above)
@@ -126,6 +127,42 @@ export function renderReport(input: RenderInput): RenderResult {
       // Horizontal rule
       if (trimmed === '---') {
         flushProse();
+        continue;
+      }
+
+      const headingMatch = trimmed.match(/^(#{1,6})\s+(.+)$/);
+      if (headingMatch) {
+        flushProse();
+        const headingLevel = Math.min(section.level + 1, 6);
+        const headingText = headingMatch[2]!.trim();
+        bodyParts.push(`          <h${headingLevel}>${renderInlineMarkdown(headingText)}</h${headingLevel}>`);
+        continue;
+      }
+
+      if (isMarkdownTableStart(lines, i)) {
+        flushProse();
+        const tableLines: string[] = [];
+        while (i < lines.length && isMarkdownTableLine(lines[i]!)) {
+          tableLines.push(renderInlineMarkdown(lines[i]!.trim()));
+          i += 1;
+        }
+        i -= 1;
+        const html = renderBlock(markdownBlock('table', tableLines.join('\n')), renderOpts);
+        if (html) bodyParts.push(html);
+        continue;
+      }
+
+      const listStyle = markdownListStyle(trimmed);
+      if (listStyle) {
+        flushProse();
+        const listLines: string[] = [];
+        while (i < lines.length && markdownListStyle(lines[i]!.trim()) === listStyle) {
+          listLines.push(renderInlineMarkdown(lines[i]!.trim()));
+          i += 1;
+        }
+        i -= 1;
+        const html = renderBlock(markdownBlock('list', listLines.join('\n'), { style: listStyle }), renderOpts);
+        if (html) bodyParts.push(html);
         continue;
       }
 
@@ -216,6 +253,38 @@ export function renderReport(input: RenderInput): RenderResult {
       htmlBytes: html.length,
     },
   };
+}
+
+function markdownBlock(tag: string, body: string, params: Record<string, string> = {}): IRBlock {
+  return { tag, body, params, lineStart: 0, lineEnd: 0 };
+}
+
+function isMarkdownTableStart(lines: string[], index: number): boolean {
+  return isMarkdownTableLine(lines[index] || '') && isMarkdownTableSeparator(lines[index + 1] || '');
+}
+
+function isMarkdownTableLine(line: string): boolean {
+  const trimmed = line.trim();
+  return trimmed.startsWith('|') && trimmed.endsWith('|') && trimmed.split('|').length >= 3;
+}
+
+function isMarkdownTableSeparator(line: string): boolean {
+  const trimmed = line.trim();
+  return /^\|?\s*:?-{3,}:?\s*(\|\s*:?-{3,}:?\s*)+\|?$/.test(trimmed);
+}
+
+function markdownListStyle(line: string): 'ordered' | 'unordered' | null {
+  if (/^[-*]\s+/.test(line)) return 'unordered';
+  if (/^\d+\.\s+/.test(line)) return 'ordered';
+  return null;
+}
+
+function renderInlineMarkdown(value: string): string {
+  const escaped = escHtmlPreserveInline(value);
+  return escaped
+    .replace(/`([^`]+)`/g, '<code>$1</code>')
+    .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+    .replace(/(^|[^*])\*([^*\n]+)\*/g, '$1<em>$2</em>');
 }
 
 function renderBlock(block: IRBlock, options: RenderOptions): string {

@@ -17,6 +17,7 @@
 - `kai-report-creator` 当前注册版本为 `2.1.0`，用于 HTML 报告、看板、KPI 摘要和可导出交互报告。
 - 桌面端 release workflow 会 checkout 本仓库，构建 `kai-report-creator` 的 `report-renderer` bundle，并下载 slide renderer 所需 Python wheels 后再打包 macOS/Windows 安装器。
 - 插件仍遵循“LLM 生成结构化 IR，MCP renderer 负责确定性 HTML 输出”的边界，避免把最终 HTML 生成责任交给模型自由发挥。
+- v2.1.0 report renderer 加强了正文 Markdown 解析：章节内标题、列表、表格、inline strong/em/code 会转成正式 HTML，不再在报告预览里留下大段未渲染 Markdown 或不可读转义字符。
 
 ## 快速安装
 
@@ -262,6 +263,7 @@ gh release create v3.2.0 --generate-notes
 - `kai-report-creator` is registered at `2.1.0` for HTML reports, dashboards, KPI summaries, and exportable interactive reports.
 - The xiaok Desktop release workflow checks out this repository, builds the `kai-report-creator` `report-renderer` bundle, downloads the Python wheels needed by the slide renderer, and then packages macOS/Windows installers.
 - Plugins keep the core boundary intact: the LLM emits structured IR, while the MCP renderer owns deterministic HTML/CSS/JS output.
+- v2.1.0 report renderer improves prose Markdown rendering: nested headings, lists, tables, and inline strong/em/code become formal HTML instead of leaking raw Markdown or over-escaped text into report previews.
 
 ### Design Philosophy
 

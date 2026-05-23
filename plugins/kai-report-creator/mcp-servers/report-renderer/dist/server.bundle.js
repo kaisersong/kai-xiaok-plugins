@@ -34266,6 +34266,9 @@ import { writeFileSync } from "node:fs";
 function escHtml(s) {
   return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 }
+function escHtmlText(s) {
+  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
 var ALLOWED_TAGS = [
   "span",
   "strong",
@@ -34285,7 +34288,7 @@ function escHtmlPreserveInline(s) {
     placeholders.push(match);
     return `\0PH${placeholders.length - 1}\0`;
   });
-  const escaped = escHtml(withPlaceholders);
+  const escaped = escHtmlText(withPlaceholders);
   return escaped.replace(/\x00PH(\d+)\x00/g, (_, idx) => placeholders[Number(idx)]);
 }
 
@@ -34379,7 +34382,7 @@ ${tocToggle}${tocSidebar}
     <div class="main-with-toc">
       <div class="report-wrapper">
         <div class="title-row">
-          <h1>${escHtml(opts.title)}</h1>
+          <h1>${escHtmlText(opts.title)}</h1>
           <button id="card-mode-btn" class="card-mode-btn" title="${cardBtnTitle}">${cardBtnText}</button>
         </div>${metaLine}
 
@@ -34405,7 +34408,7 @@ function buildTocSidebar(items, lang) {
   const navLabel = lang === "zh" ? "\u62A5\u544A\u76EE\u5F55" : "Report contents";
   const links = items.map((item) => {
     const h3Class = item.level === 3 ? ' class="toc-h3"' : "";
-    return `      <a href="#section-${item.slug}" data-section="${escHtml(item.text)}"${h3Class}>${escHtml(item.text)}</a>`;
+    return `      <a href="#section-${item.slug}" data-section="${escHtml(item.text)}"${h3Class}>${escHtmlText(item.text)}</a>`;
   }).join("\n");
   return `    <nav class="toc-sidebar" id="toc-sidebar" aria-label="${navLabel}">
       <h4>${title}</h4>
@@ -35521,7 +35524,7 @@ function renderReport(input) {
       return t && !t.startsWith(":::") && !t.startsWith("<");
     })?.trim() ?? "").replace(/<[^>]+>/g, "");
     bodyParts.push(`        <section data-section="${escHtml(section.heading)}" data-summary="${escHtml(summary)}" id="section-${slug}">`);
-    bodyParts.push(`          <h${section.level} id="section-${slug}">${escHtml(section.heading)}</h${section.level}>`);
+    bodyParts.push(`          <h${section.level} id="section-${slug}">${escHtmlText(section.heading)}</h${section.level}>`);
     const lines = section.content.split("\n");
     let blockQueue = [...section.blocks];
     let inBlock = false;
@@ -35544,12 +35547,13 @@ function renderReport(input) {
           }
         } else {
           const proseClass = animations ? ' class="fade-in-up"' : "";
-          bodyParts.push(`          <p${proseClass}>${text}</p>`);
+          bodyParts.push(`          <p${proseClass}>${renderInlineMarkdown(text)}</p>`);
         }
       }
       proseBuffer = [];
     };
-    for (const line of lines) {
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
       const trimmed = line.trim();
       if (trimmed.startsWith("##"))
         continue;
@@ -35572,6 +35576,41 @@ function renderReport(input) {
         continue;
       if (trimmed === "---") {
         flushProse();
+        continue;
+      }
+      const headingMatch = trimmed.match(/^(#{1,6})\s+(.+)$/);
+      if (headingMatch) {
+        flushProse();
+        const headingLevel = Math.min(section.level + 1, 6);
+        const headingText = headingMatch[2].trim();
+        bodyParts.push(`          <h${headingLevel}>${renderInlineMarkdown(headingText)}</h${headingLevel}>`);
+        continue;
+      }
+      if (isMarkdownTableStart(lines, i)) {
+        flushProse();
+        const tableLines = [];
+        while (i < lines.length && isMarkdownTableLine(lines[i])) {
+          tableLines.push(renderInlineMarkdown(lines[i].trim()));
+          i += 1;
+        }
+        i -= 1;
+        const html2 = renderBlock(markdownBlock("table", tableLines.join("\n")), renderOpts);
+        if (html2)
+          bodyParts.push(html2);
+        continue;
+      }
+      const listStyle = markdownListStyle(trimmed);
+      if (listStyle) {
+        flushProse();
+        const listLines = [];
+        while (i < lines.length && markdownListStyle(lines[i].trim()) === listStyle) {
+          listLines.push(renderInlineMarkdown(lines[i].trim()));
+          i += 1;
+        }
+        i -= 1;
+        const html2 = renderBlock(markdownBlock("list", listLines.join("\n"), { style: listStyle }), renderOpts);
+        if (html2)
+          bodyParts.push(html2);
         continue;
       }
       if (!trimmed) {
@@ -35648,6 +35687,31 @@ function renderReport(input) {
       htmlBytes: html.length
     }
   };
+}
+function markdownBlock(tag, body, params = {}) {
+  return { tag, body, params, lineStart: 0, lineEnd: 0 };
+}
+function isMarkdownTableStart(lines, index) {
+  return isMarkdownTableLine(lines[index] || "") && isMarkdownTableSeparator(lines[index + 1] || "");
+}
+function isMarkdownTableLine(line) {
+  const trimmed = line.trim();
+  return trimmed.startsWith("|") && trimmed.endsWith("|") && trimmed.split("|").length >= 3;
+}
+function isMarkdownTableSeparator(line) {
+  const trimmed = line.trim();
+  return /^\|?\s*:?-{3,}:?\s*(\|\s*:?-{3,}:?\s*)+\|?$/.test(trimmed);
+}
+function markdownListStyle(line) {
+  if (/^[-*]\s+/.test(line))
+    return "unordered";
+  if (/^\d+\.\s+/.test(line))
+    return "ordered";
+  return null;
+}
+function renderInlineMarkdown(value) {
+  const escaped = escHtmlPreserveInline(value);
+  return escaped.replace(/`([^`]+)`/g, "<code>$1</code>").replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>").replace(/(^|[^*])\*([^*\n]+)\*/g, "$1<em>$2</em>");
 }
 function renderBlock(block, options) {
   switch (block.tag) {
