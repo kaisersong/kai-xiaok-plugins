@@ -6,7 +6,7 @@
   "scripts": {
     "build": "tsc && npm run copy-assets",
     "build:bundle": "esbuild dist/server.js --bundle --platform=node --format=esm --outfile=dist/server.bundle.js --packages=bundle --external:node:*",
-    "copy-assets": "cp -r src/themes/css dist/themes/",
+    "copy-assets": "node -e \"const fs=require('fs'); fs.cpSync('src/themes/css','dist/themes/css',{recursive:true});\"",
     "dev": "tsx src/server.ts",
     "test": "vitest run",
     "test:watch": "vitest",
