@@ -47,6 +47,85 @@
         "install": "cd mcp-servers/report-renderer && npm install && npm run build",
         "test": "cd mcp-servers/report-renderer && npx vitest run"
       }
+    },
+    {
+      "name": "cua-computer-use",
+      "display_name": "Computer Use for Mac",
+      "description": "通过 CUA Driver 在 macOS 上观察和操作本机应用",
+      "category": "local-automation",
+      "keywords": [
+        "computer-use",
+        "cua",
+        "macos",
+        "automation",
+        "mcp",
+        "本机自动化",
+        "电脑操作"
+      ],
+      "repo": "kaisersong/kai-xiaok-plugins",
+      "path": "plugins/cua-computer-use",
+      "version": "0.2.0",
+      "platforms": ["darwin"],
+      "dependencies": {
+        "runtime": "cua-driver",
+        "install": "Use Xiaok Settings to install the official CUA Driver dependency",
+        "test": "cua-driver --version && cua-driver check_permissions"
+      },
+      "externalDependencies": [
+        {
+          "id": "cua-driver",
+          "kind": "macos_app_cli",
+          "displayName": "CUA Driver",
+          "envOverride": "XIAOK_CUA_DRIVER_CMD",
+          "binaryCandidates": [
+            "~/.local/bin/cua-driver",
+            "/usr/local/bin/cua-driver",
+            "/opt/homebrew/bin/cua-driver",
+            "cua-driver"
+          ],
+          "minVersion": "0.1.0",
+          "install": {
+            "kind": "official_installer",
+            "sourceUrl": "https://raw.githubusercontent.com/trycua/cua/main/libs/cua-driver/scripts/install.sh",
+            "sourceAllowlist": [
+              "https://raw.githubusercontent.com/trycua/cua/main/libs/cua-driver/scripts/install.sh"
+            ],
+            "requiresUserConfirmation": true
+          },
+          "update": {
+            "kind": "command",
+            "command": "~/.local/bin/cua-driver",
+            "args": ["update"],
+            "requiresUserConfirmation": true
+          },
+          "health": {
+            "version": ["~/.local/bin/cua-driver", "--version"],
+            "status": ["~/.local/bin/cua-driver", "status"],
+            "permissions": ["~/.local/bin/cua-driver", "check_permissions"],
+            "doctor": ["~/.local/bin/cua-driver", "doctor"]
+          },
+          "mcp": {
+            "serverName": "cua-driver",
+            "command": "~/.local/bin/cua-driver",
+            "args": ["mcp"],
+            "requiresUserActivation": true
+          },
+          "toolPolicy": {
+            "defaultPermission": "write",
+            "safeTools": ["list_apps", "list_windows", "get_window_state", "screenshot"],
+            "hiddenRawToolsInProduct": true,
+            "productWrapper": "xiaok_computer_use"
+          }
+        }
+      ],
+      "toolPermissions": {
+        "defaultMcpToolPermission": "write",
+        "tools": {
+          "xiaok_computer_use": "write",
+          "mcp__cua-driver__get_app_state": "safe",
+          "mcp__cua-driver__list_apps": "safe"
+        }
+      }
     }
   ]
 }

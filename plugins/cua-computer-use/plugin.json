@@ -1,0 +1,32 @@
+{
+  "name": "cua-computer-use",
+  "version": "0.2.0",
+  "description": "Computer Use for Mac powered by CUA Driver",
+  "platforms": ["darwin"],
+  "interface": {
+    "display_name": "Computer Use for Mac",
+    "short_description": "通过 CUA Driver 在 macOS 上观察和操作本机应用",
+    "category": "local-automation",
+    "capabilities": ["computer-use", "macos-automation", "mcp-tools"],
+    "keywords": ["computer-use", "cua", "macos", "automation", "mcp"]
+  },
+  "skills": ["skills/computer-use"],
+  "mcpServers": [
+    {
+      "name": "cua-driver",
+      "type": "stdio",
+      "command": "~/.local/bin/cua-driver",
+      "args": ["mcp"],
+      "requiresUserActivation": true
+    }
+  ],
+  "toolPolicy": {
+    "defaultPermission": "write",
+    "safeTools": ["get_window_state", "list_apps", "list_windows", "screenshot"],
+    "hiddenRawToolsInProduct": true,
+    "productWrapper": "xiaok_computer_use"
+  },
+  "hooks": [],
+  "commands": [],
+  "agents": []
+}
