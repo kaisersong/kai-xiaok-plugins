@@ -33712,6 +33712,7 @@ function toStringArray(val) {
 }
 
 // dist/parser/ir-parser.js
+var STRUCTURAL_DIRECTIVES = /* @__PURE__ */ new Set(["cover", "toc", "section"]);
 function parseDocument(source) {
   const { frontmatter, warnings, bodyStart } = parseFrontmatter(source);
   const lines = source.split("\n");
@@ -33732,10 +33733,14 @@ function parseBlocks(body, lineOffset = 0) {
   let i = 0;
   while (i < lines.length) {
     const line = lines[i];
-    const openMatch = line.match(/^:::(\w+)\s*(.*)?$/);
+    const openMatch = line.match(/^:::\s*(\w+)\s*(.*)?$/);
     if (openMatch) {
       const tag = openMatch[1];
       const paramStr = openMatch[2] ?? "";
+      if (STRUCTURAL_DIRECTIVES.has(tag)) {
+        i++;
+        continue;
+      }
       const params = parseParams(paramStr);
       const lineStart = i + lineOffset;
       const bodyLines = [];
@@ -35501,6 +35506,8 @@ function renderImage(block, options) {
 }
 
 // dist/renderer/html-builder.js
+var STRUCTURAL_DIRECTIVES2 = /* @__PURE__ */ new Set(["cover", "toc", "section"]);
+var SKIP_BODY_DIRECTIVES = /* @__PURE__ */ new Set(["toc"]);
 function renderReport(input) {
   const warnings = [];
   const doc = parseDocument(input.irContent);
@@ -35528,6 +35535,7 @@ function renderReport(input) {
     const lines = section.content.split("\n");
     let blockQueue = [...section.blocks];
     let inBlock = false;
+    let skipDirectiveBody = false;
     let proseBuffer = [];
     const flushProse = () => {
       if (proseBuffer.length === 0)
@@ -35555,10 +35563,20 @@ function renderReport(input) {
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i];
       const trimmed = line.trim();
+      if (skipDirectiveBody) {
+        if (trimmed === ":::")
+          skipDirectiveBody = false;
+        continue;
+      }
       if (trimmed.startsWith("##"))
         continue;
-      if (trimmed.match(/^:::\w/)) {
+      const directiveOpen = parseDirectiveOpen(trimmed);
+      if (directiveOpen) {
         flushProse();
+        if (STRUCTURAL_DIRECTIVES2.has(directiveOpen.tag)) {
+          skipDirectiveBody = SKIP_BODY_DIRECTIVES.has(directiveOpen.tag);
+          continue;
+        }
         inBlock = true;
         continue;
       }
@@ -35709,6 +35727,10 @@ function markdownListStyle(line) {
     return "ordered";
   return null;
 }
+function parseDirectiveOpen(line) {
+  const match = line.match(/^:::\s*(\w+)\b/);
+  return match ? { tag: match[1] } : null;
+}
 function renderInlineMarkdown(value) {
   const escaped = escHtmlPreserveInline(value);
   return escaped.replace(/`([^`]+)`/g, "<code>$1</code>").replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>").replace(/(^|[^*])\*([^*\n]+)\*/g, "$1<em>$2</em>");
@@ -35738,9 +35760,10 @@ function renderBlock(block, options) {
   }
 }
 function validateOutput(html) {
-  const l0 = !html.includes(":::") || html.indexOf(":::") === html.indexOf("<!");
   const hasIrHash = /meta\s+name="ir-hash"\s+content="[^"]+"/i.test(html);
-  const l0Pass = !/^:::/m.test(html.replace(/<[^>]+>/g, "")) && hasIrHash;
+  const visibleText = html.replace(/<script\b[\s\S]*?<\/script>/gi, "").replace(/<style\b[\s\S]*?<\/style>/gi, "").replace(/<[^>]+>/g, "\n");
+  const hasDirectiveLeak = visibleText.split("\n").some((line) => line.trim().includes(":::"));
+  const l0Pass = !hasDirectiveLeak && hasIrHash;
   const l1 = html.includes('data-template="kai-report-creator"') && html.includes("<script") && html.includes("report-wrapper");
   const requiredIds = [
     "toc-toggle-btn",

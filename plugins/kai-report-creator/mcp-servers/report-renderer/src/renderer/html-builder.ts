@@ -32,6 +32,9 @@ export interface RenderInput {
   bundle?: boolean;
 }
 
+const STRUCTURAL_DIRECTIVES = new Set(['cover', 'toc', 'section']);
+const SKIP_BODY_DIRECTIVES = new Set(['toc']);
+
 export function renderReport(input: RenderInput): RenderResult {
   const warnings: string[] = [];
   const doc = parseDocument(input.irContent);
@@ -69,6 +72,7 @@ export function renderReport(input: RenderInput): RenderResult {
     const lines = section.content.split('\n');
     let blockQueue = [...section.blocks]; // blocks to render in order
     let inBlock = false;
+    let skipDirectiveBody = false;
     let proseBuffer: string[] = [];
 
     const flushProse = () => {
@@ -100,12 +104,22 @@ export function renderReport(input: RenderInput): RenderResult {
       const line = lines[i]!;
       const trimmed = line.trim();
 
+      if (skipDirectiveBody) {
+        if (trimmed === ':::') skipDirectiveBody = false;
+        continue;
+      }
+
       // Skip section headings (already rendered above)
       if (trimmed.startsWith('##')) continue;
 
       // Block open
-      if (trimmed.match(/^:::\w/)) {
+      const directiveOpen = parseDirectiveOpen(trimmed);
+      if (directiveOpen) {
         flushProse();
+        if (STRUCTURAL_DIRECTIVES.has(directiveOpen.tag)) {
+          skipDirectiveBody = SKIP_BODY_DIRECTIVES.has(directiveOpen.tag);
+          continue;
+        }
         inBlock = true;
         continue;
       }
@@ -279,6 +293,11 @@ function markdownListStyle(line: string): 'ordered' | 'unordered' | null {
   return null;
 }
 
+function parseDirectiveOpen(line: string): { tag: string } | null {
+  const match = line.match(/^:::\s*(\w+)\b/);
+  return match ? { tag: match[1]! } : null;
+}
+
 function renderInlineMarkdown(value: string): string {
   const escaped = escHtmlPreserveInline(value);
   return escaped
@@ -307,9 +326,15 @@ interface ValidationResult { l0: boolean; l1: boolean; l2: boolean; l3: boolean;
 
 function validateOutput(html: string): ValidationResult {
   // L0: No ::: leakage, ir-hash exists
-  const l0 = !html.includes(':::') || html.indexOf(':::') === html.indexOf('<!');
   const hasIrHash = /meta\s+name="ir-hash"\s+content="[^"]+"/i.test(html);
-  const l0Pass = !(/^:::/m.test(html.replace(/<[^>]+>/g, ''))) && hasIrHash;
+  const visibleText = html
+    .replace(/<script\b[\s\S]*?<\/script>/gi, '')
+    .replace(/<style\b[\s\S]*?<\/style>/gi, '')
+    .replace(/<[^>]+>/g, '\n');
+  const hasDirectiveLeak = visibleText
+    .split('\n')
+    .some(line => line.trim().includes(':::'));
+  const l0Pass = !hasDirectiveLeak && hasIrHash;
 
   // L1: Shell structure
   const l1 = html.includes('data-template="kai-report-creator"')

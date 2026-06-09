@@ -89,6 +89,45 @@ labels: [Jan, Feb]
     expect(blocks[0]!.params['title']).toBe('Monthly Revenue');
   });
 
+  it('parses space-separated component directives', () => {
+    const body = `::: kpi
+items:
+  - label: DAU
+    value: 100万
+:::
+
+::: chart type=bar
+labels: [a, b]
+datasets:
+  - name: test
+    data: [1, 2]
+:::`;
+
+    const blocks = parseBlocks(body);
+    expect(blocks).toHaveLength(2);
+    expect(blocks[0]!.tag).toBe('kpi');
+    expect(blocks[1]!.tag).toBe('chart');
+    expect(blocks[1]!.params['type']).toBe('bar');
+  });
+
+  it('ignores structural directives without hiding nested components', () => {
+    const body = `::: section id="executive-summary"
+
+# 执行摘要
+
+::: kpi
+items:
+  - label: 发布数
+    value: 18
+:::
+
+:::`;
+
+    const blocks = parseBlocks(body);
+    expect(blocks).toHaveLength(1);
+    expect(blocks[0]!.tag).toBe('kpi');
+  });
+
   it('returns empty array for no blocks', () => {
     const blocks = parseBlocks('Just plain text\nNo blocks here');
     expect(blocks).toHaveLength(0);

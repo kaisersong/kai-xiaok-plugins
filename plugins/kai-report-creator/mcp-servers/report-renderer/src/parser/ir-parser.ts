@@ -25,6 +25,8 @@ export interface IRDocument {
   rawBody: string;
 }
 
+const STRUCTURAL_DIRECTIVES = new Set(['cover', 'toc', 'section']);
+
 /**
  * Parse a .report.md IR source into a structured document.
  */
@@ -55,11 +57,15 @@ export function parseBlocks(body: string, lineOffset = 0): IRBlock[] {
   let i = 0;
   while (i < lines.length) {
     const line = lines[i]!;
-    const openMatch = line.match(/^:::(\w+)\s*(.*)?$/);
+    const openMatch = line.match(/^:::\s*(\w+)\s*(.*)?$/);
 
     if (openMatch) {
       const tag = openMatch[1]!;
       const paramStr = openMatch[2] ?? '';
+      if (STRUCTURAL_DIRECTIVES.has(tag)) {
+        i++;
+        continue;
+      }
       const params = parseParams(paramStr);
       const lineStart = i + lineOffset;
       const bodyLines: string[] = [];

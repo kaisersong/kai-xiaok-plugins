@@ -103,6 +103,59 @@ date: 2026-05-21
     expect(result.html).not.toContain('**业务对象语义层**');
   });
 
+  it('strips space-separated structural directives from rendered HTML', () => {
+    const directiveIR = `---
+title: Directive Source Report
+theme: corporate-blue
+lang: zh
+report_class: mixed
+date: 2026-06-09
+---
+
+::: cover
+
+# 月度 AI 产品分析
+
+## 产品发布与市场反应
+
+覆盖 OpenAI、Google、Anthropic。
+
+:::
+
+::: toc
+
+# 目录
+
+:::
+
+::: section id="executive-summary"
+
+# 执行摘要
+
+本月国外 AI 产品发布密集，Agent 化和企业定价是两条主线。
+
+## 六大核心发现
+
+### Agent 化成为行业主旋律
+
+所有主要厂商都在把 AI 从问答工具推向可委派任务的工作单元。
+
+:::
+`;
+
+    const result = renderReport({ irContent: directiveIR, outputPath });
+
+    expect(result.success).toBe(true);
+    expect(result.validation.l0).toBe(true);
+    expect(result.html).toContain('toc-sidebar');
+    expect(result.html).toContain('产品发布与市场反应');
+    expect(result.html).toContain('六大核心发现');
+    expect(result.html).not.toContain('::: cover');
+    expect(result.html).not.toContain('::: toc');
+    expect(result.html).not.toContain('::: section');
+    expect(result.html).not.toMatch(/<p[^>]*>\s*:::/);
+  });
+
   it('keeps prose quotation marks readable while escaping unsafe HTML', () => {
     const markdownIR = `---
 title: Quote Escape Report
