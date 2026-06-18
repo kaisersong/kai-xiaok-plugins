@@ -35732,7 +35732,8 @@ function renderReport(input) {
     kpis: extractKpis(doc),
     sections: doc.sections.map((s) => ({ title: s.heading, slug: s.slug }))
   };
-  const irHash = createHash("sha256").update(input.irContent).digest("hex").slice(0, 16);
+  const normalizedIr = input.irContent.trim() ? input.irContent.trim() + "\n" : "";
+  const irHash = createHash("sha256").update(normalizedIr).digest("hex").slice(0, 16);
   const tocItems = doc.sections.map((s) => ({
     slug: s.slug,
     text: s.heading,

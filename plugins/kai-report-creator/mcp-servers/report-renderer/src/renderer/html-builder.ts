@@ -208,8 +208,9 @@ export function renderReport(input: RenderInput): RenderResult {
     sections: doc.sections.map(s => ({ title: s.heading, slug: s.slug })),
   };
 
-  // Compute IR hash
-  const irHash = createHash('sha256').update(input.irContent).digest('hex').slice(0, 16);
+  // Compute IR hash (normalize_text parity: strip + trailing newline)
+  const normalizedIr = input.irContent.trim() ? input.irContent.trim() + '\n' : '';
+  const irHash = createHash('sha256').update(normalizedIr).digest('hex').slice(0, 16);
 
   // TOC items
   const tocItems = doc.sections.map(s => ({
