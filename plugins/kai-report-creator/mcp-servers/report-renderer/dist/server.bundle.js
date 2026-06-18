@@ -34350,6 +34350,70 @@ ${vars}
   return css;
 }
 
+// dist/renderer/jsonld.js
+function buildReportJsonLd(input) {
+  const fm = input.frontmatter;
+  const payload = {
+    "@context": "http://schema.org/",
+    "@type": "Report"
+  };
+  if (input.irHash) {
+    payload["@id"] = `https://kai.app/id/report/${encodeURIComponent(input.irHash)}`;
+  }
+  payload.name = fm.title || "Report";
+  if (fm.abstract)
+    payload.description = fm.abstract;
+  if (fm.date)
+    payload.dateCreated = fm.date;
+  payload.inLanguage = fm.lang === "en" ? "en-US" : "zh-CN";
+  payload.creator = fm.author ? { "@type": "Person", name: fm.author } : { "@type": "Organization", name: "kai-report-creator" };
+  if (fm.audience) {
+    payload.audience = { "@type": "Audience", name: fm.audience };
+  }
+  if (fm.decision_goal) {
+    payload.about = { "@type": "Thing", name: fm.decision_goal };
+  }
+  if (fm.report_class)
+    payload.genre = fm.report_class;
+  if (fm.archetype) {
+    payload.additionalType = `https://kai.app/ns#report-archetype-${encodeURIComponent(fm.archetype)}`;
+  }
+  const additionalProperty = [];
+  if (fm.theme)
+    additionalProperty.push(propertyValue("reportTheme", fm.theme));
+  if (fm.template)
+    additionalProperty.push(propertyValue("reportTemplate", fm.template));
+  if (input.rendererVersion)
+    additionalProperty.push(propertyValue("rendererVersion", input.rendererVersion));
+  if (input.irHash)
+    additionalProperty.push(propertyValue("irHash", input.irHash));
+  additionalProperty.push(propertyValue("metadataVersion", "1"));
+  payload.additionalProperty = additionalProperty;
+  return stableStringify(payload);
+}
+function propertyValue(propertyName, value) {
+  return {
+    "@type": "PropertyValue",
+    propertyID: `https://kai.app/ns#${propertyName}`,
+    value
+  };
+}
+function stableStringify(value, indent = 2) {
+  return JSON.stringify(value, (_key, val) => {
+    if (val && typeof val === "object" && !Array.isArray(val)) {
+      const sorted = {};
+      for (const k of Object.keys(val).sort()) {
+        sorted[k] = val[k];
+      }
+      return sorted;
+    }
+    return val;
+  }, indent);
+}
+function escapeJsonLdForHtml(jsonString) {
+  return String(jsonString).replace(/<\/(script)/gi, "<\\/$1").replace(/\u2028/g, "\\u2028").replace(/\u2029/g, "\\u2029");
+}
+
 // dist/renderer/shell.js
 function buildHtmlShell(opts) {
   const zh = opts.lang === "zh";
@@ -34364,6 +34428,21 @@ function buildHtmlShell(opts) {
         <p class="report-meta">${opts.author ? escHtml(opts.author) + " \xB7 " : ""}${escHtml(opts.date)}</p>` : "";
   const cardBtnText = zh ? "\u229E \u6458\u8981\u5361" : "\u229E Summary";
   const cardBtnTitle = zh ? "\u6458\u8981\u5361\u7247" : "Summary Card";
+  const fmForJsonLd = opts.frontmatter ?? {
+    title: opts.title,
+    theme: opts.theme,
+    date: opts.date,
+    lang: opts.lang,
+    report_class: "mixed",
+    ...opts.author ? { author: opts.author } : {},
+    ...opts.abstract ? { abstract: opts.abstract } : {}
+  };
+  const jsonLd = buildReportJsonLd({
+    frontmatter: fmForJsonLd,
+    irHash: opts.irHash,
+    rendererVersion: opts.version
+  });
+  const jsonLdTag = `    <script type="application/ld+json">${escapeJsonLdForHtml(jsonLd)}</script>`;
   return `<!DOCTYPE html>
 <html lang="${opts.lang}" data-template="kai-report-creator" data-version="${opts.version}" data-theme="${opts.theme}">
 <head>
@@ -34372,6 +34451,7 @@ function buildHtmlShell(opts) {
     <meta name="generator" content="kai-report-creator ${opts.theme} v${opts.version}">
     <meta name="ir-hash" content="${opts.irHash}">
     <title>${escHtml(opts.title)}</title>
+${jsonLdTag}
 ${echartsScript}${highlightjsLink}    <style>
 ${opts.css}
     </style>
@@ -35674,7 +35754,8 @@ function renderReport(input) {
     author: doc.frontmatter.author ?? "",
     date: doc.frontmatter.date ?? "",
     abstract: doc.frontmatter.abstract ?? "",
-    version: "2.0.0"
+    version: "2.0.0",
+    frontmatter: doc.frontmatter
   };
   const html = buildHtmlShell(shellOpts);
   const validation = validateOutput(html);

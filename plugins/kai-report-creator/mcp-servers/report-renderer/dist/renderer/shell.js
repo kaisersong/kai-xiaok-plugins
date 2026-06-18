@@ -1,4 +1,5 @@
 import { escHtml, escHtmlText } from './escape.js';
+import { buildReportJsonLd, escapeJsonLdForHtml } from './jsonld.js';
 export function buildHtmlShell(opts) {
     const zh = opts.lang === 'zh';
     const echartsScript = opts.needsEcharts
@@ -17,6 +18,21 @@ export function buildHtmlShell(opts) {
         : '';
     const cardBtnText = zh ? '⊞ 摘要卡' : '⊞ Summary';
     const cardBtnTitle = zh ? '摘要卡片' : 'Summary Card';
+    const fmForJsonLd = opts.frontmatter ?? {
+        title: opts.title,
+        theme: opts.theme,
+        date: opts.date,
+        lang: opts.lang,
+        report_class: 'mixed',
+        ...(opts.author ? { author: opts.author } : {}),
+        ...(opts.abstract ? { abstract: opts.abstract } : {}),
+    };
+    const jsonLd = buildReportJsonLd({
+        frontmatter: fmForJsonLd,
+        irHash: opts.irHash,
+        rendererVersion: opts.version,
+    });
+    const jsonLdTag = `    <script type="application/ld+json">${escapeJsonLdForHtml(jsonLd)}</script>`;
     return `<!DOCTYPE html>
 <html lang="${opts.lang}" data-template="kai-report-creator" data-version="${opts.version}" data-theme="${opts.theme}">
 <head>
@@ -25,6 +41,7 @@ export function buildHtmlShell(opts) {
     <meta name="generator" content="kai-report-creator ${opts.theme} v${opts.version}">
     <meta name="ir-hash" content="${opts.irHash}">
     <title>${escHtml(opts.title)}</title>
+${jsonLdTag}
 ${echartsScript}${highlightjsLink}    <style>
 ${opts.css}
     </style>

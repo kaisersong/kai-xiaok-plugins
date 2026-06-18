@@ -104,6 +104,26 @@ The following tools are available as `mcp__report-renderer__<tool_name>`:
 | `list_themes` | — | List all available themes |
 | `preview_section` | `ir_content: string`, `section_index: number` | Preview a single section as HTML fragment |
 
+## Renderer Output Metadata
+
+渲染后的 HTML 会在 `<head>` 中自动注入 `<script type="application/ld+json">` 结构化元数据（schema.org），字段从 frontmatter 派生：
+
+| JSON-LD 字段 | 来源 frontmatter 字段 | 影响 |
+|---|---|---|
+| `name` | `title` | 搜索标题、RAG 索引名 |
+| `description` | `abstract` | 摘要检索、LLM 上下文 |
+| `creator` | `author`（有则 Person，无则 Organization fallback） | 作者归属 |
+| `dateCreated` | `date` | 时间排序 |
+| `inLanguage` | `lang`（zh→zh-CN，en→en-US） | 语言标签 |
+| `audience` | `audience` | 受众标签 |
+| `about` | `decision_goal` | 决策目标 |
+| `genre` | `report_class` | 类型分类 |
+| `additionalType` | `archetype` | 子类型（research/brief/comparison/update） |
+
+**因此 frontmatter 中的 `title`、`abstract`、`author`、`audience`、`decision_goal` 填写质量直接影响产物的可检索性和语义标注质量。** 生成 IR 时应尽量从用户输入中提取这些字段，即使 IR 渲染本身不依赖它们。
+
+不需要在 IR 中手写任何 JSON-LD——renderer 自动从 frontmatter 派生。
+
 ## Critical Rules
 
 1. **Never generate HTML yourself** — Only generate IR. The renderer handles HTML deterministically.

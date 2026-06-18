@@ -1,3 +1,4 @@
+import type { IRFrontmatter } from '../parser/frontmatter.js';
 export interface ShellOptions {
     title: string;
     theme: string;
@@ -19,5 +20,6 @@ export interface ShellOptions {
     date: string;
     abstract: string;
     version: string;
+    frontmatter?: IRFrontmatter;
 }
 export declare function buildHtmlShell(opts: ShellOptions): string;

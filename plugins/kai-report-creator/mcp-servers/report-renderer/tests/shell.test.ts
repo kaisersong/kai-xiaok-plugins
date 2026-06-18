@@ -251,4 +251,73 @@ describe('buildHtmlShell', () => {
     expect(html).toContain('id="report-summary"');
     expect(html).toContain('{"title":"X","theme":"Y"}');
   });
+
+  // ─── v1.1 JSON-LD embed tests ─────────────────────────────────
+
+  it('JSON-LD: <head> contains <script type="application/ld+json">', () => {
+    const html = buildHtmlShell(makeOpts());
+    expect(html).toContain('<script type="application/ld+json">');
+    const headStart = html.indexOf('<head>');
+    const headEnd = html.indexOf('</head>');
+    const scriptIdx = html.indexOf('<script type="application/ld+json">');
+    expect(headStart).toBeGreaterThanOrEqual(0);
+    expect(headEnd).toBeGreaterThan(headStart);
+    expect(scriptIdx).toBeGreaterThan(headStart);
+    expect(scriptIdx).toBeLessThan(headEnd);
+  });
+
+  it('JSON-LD: round-trip parse extracts schema.org payload', () => {
+    const html = buildHtmlShell(makeOpts({
+      title: 'Round Trip',
+      irHash: 'a1b2c3',
+      author: '张三',
+      date: '2026-06-17',
+      abstract: '摘要',
+    }));
+    const m = html.match(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/);
+    expect(m).not.toBeNull();
+    const unescaped = m![1].replace(/<\\\//g, '</');
+    const obj = JSON.parse(unescaped);
+    expect(obj['@context']).toBe('http://schema.org/');
+    expect(obj['@type']).toBe('Report');
+    expect(obj.name).toBe('Round Trip');
+    expect(obj['@id']).toBe('https://kai.app/id/report/a1b2c3');
+    expect(obj.creator).toEqual({ '@type': 'Person', name: '张三' });
+    expect(obj.dateCreated).toBe('2026-06-17');
+    expect(obj.description).toBe('摘要');
+  });
+
+  it('JSON-LD: degrades gracefully when frontmatter omitted', () => {
+    const html = buildHtmlShell(makeOpts({ frontmatter: undefined, author: '', abstract: '' }));
+    const m = html.match(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/);
+    expect(m).not.toBeNull();
+    const obj = JSON.parse(m![1].replace(/<\\\//g, '</'));
+    expect(obj['@type']).toBe('Report');
+    expect(obj.creator['@type']).toBe('Organization');
+    expect(obj.creator.name).toBe('kai-report-creator');
+  });
+
+  it('JSON-LD: full frontmatter includes audience/about/genre/additionalType', () => {
+    const html = buildHtmlShell(makeOpts({
+      frontmatter: {
+        title: 'Test Report',
+        theme: 'corporate-blue',
+        date: '2026-06-17',
+        lang: 'zh',
+        report_class: 'data',
+        archetype: 'research',
+        audience: '管理层',
+        decision_goal: 'Q3 资源分配',
+        author: '张三',
+        abstract: '摘要',
+      },
+      irHash: 'h',
+    }));
+    const m = html.match(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/);
+    const obj = JSON.parse(m![1].replace(/<\\\//g, '</'));
+    expect(obj.audience).toEqual({ '@type': 'Audience', name: '管理层' });
+    expect(obj.about).toEqual({ '@type': 'Thing', name: 'Q3 资源分配' });
+    expect(obj.genre).toBe('data');
+    expect(obj.additionalType).toBe('https://kai.app/ns#report-archetype-research');
+  });
 });

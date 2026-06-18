@@ -200,6 +200,7 @@ export function renderReport(input) {
         date: doc.frontmatter.date ?? '',
         abstract: doc.frontmatter.abstract ?? '',
         version: '2.0.0',
+        frontmatter: doc.frontmatter,
     };
     const html = buildHtmlShell(shellOpts);
     // Validate output
