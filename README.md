@@ -13,14 +13,14 @@
 
 ## 当前发布基线
 
-- Xiaok Desktop v1.4.8 继续把本仓库作为随包插件来源；release workflow 会从默认分支 checkout 本仓库，因此打 tag 前必须保证插件 README、registry 和 renderer bundle 构建说明已经同步。
+- Xiaok Desktop v1.4.9 继续把本仓库作为随包插件来源；release workflow 会从默认分支 checkout 本仓库，因此打 tag 前必须保证插件 README、registry 和 renderer bundle 构建说明已经同步。
 - `kai-slide-creator` 当前注册版本为 `3.2.0`，用于 HTML 演示文稿/幻灯片生成。
 - `kai-report-creator` 当前注册版本为 `2.1.0`，用于 HTML 报告、看板、KPI 摘要和可导出交互报告。
 - 桌面端 release workflow 会 checkout 本仓库，构建 `kai-report-creator` 的 `report-renderer` bundle，并下载 slide renderer 所需 Python wheels 后再打包 macOS/Windows 安装器。
-- 插件仍遵循“LLM 生成结构化 IR，MCP renderer 负责确定性 HTML 输出”的边界，避免把最终 HTML 生成责任交给模型自由发挥。
-- Xiaok v1.4.8 的自动化/Loop 输出预览会复用同一套 artifact 预览边界：插件负责生成可检查的 HTML 产物，Xiaok 负责把产物挂到任务、loop 或项目界面。
+- 插件仍遵循”LLM 生成结构化 IR，MCP renderer 负责确定性 HTML 输出”的边界，避免把最终 HTML 生成责任交给模型自由发挥。
+- Xiaok v1.4.9 的自动化/Loop 输出预览和知识库产物预览会复用同一套 artifact 预览边界：插件负责生成可检查的 HTML 产物，Xiaok 负责把产物挂到任务、loop 或项目界面。
 - v2.1.0 report renderer 加强了正文 Markdown 解析：章节内标题、列表、表格、inline strong/em/code 会转成正式 HTML，不再在报告预览里留下大段未渲染 Markdown 或不可读转义字符。
-- 本次 Xiaok v1.4.8 release 不提升插件注册版本；当前插件 baseline 仍是 slide `3.2.0`、report `2.1.0`。
+- 本次 Xiaok v1.4.9 release 不提升插件注册版本；当前插件 baseline 仍是 slide `3.2.0`、report `2.1.0`。
 
 ## 快速安装
 
@@ -262,14 +262,14 @@ gh release create v3.2.0 --generate-notes
 
 ### Current Release Baseline
 
-- Xiaok Desktop v1.4.8 continues to package this repository as the bundled plugin source. The desktop release workflow checks out the default branch, so README, registry, and renderer build guidance must be synchronized before the release tag is pushed.
+- Xiaok Desktop v1.4.9 continues to package this repository as the bundled plugin source. The desktop release workflow checks out the default branch, so README, registry, and renderer build guidance must be synchronized before the release tag is pushed.
 - `kai-slide-creator` is registered at `3.2.0` for HTML presentation and slide generation.
 - `kai-report-creator` is registered at `2.1.0` for HTML reports, dashboards, KPI summaries, and exportable interactive reports.
 - The xiaok Desktop release workflow checks out this repository, builds the `kai-report-creator` `report-renderer` bundle, downloads the Python wheels needed by the slide renderer, and then packages macOS/Windows installers.
 - Plugins keep the core boundary intact: the LLM emits structured IR, while the MCP renderer owns deterministic HTML/CSS/JS output.
-- Xiaok v1.4.8 Automations and Loop output previews reuse the same artifact-preview boundary: plugins generate inspectable HTML artifacts, while Xiaok attaches those artifacts to task, loop, or project surfaces.
+- Xiaok v1.4.9 Automations, Loop output previews, and Knowledge Base artifact previews reuse the same artifact-preview boundary: plugins generate inspectable HTML artifacts, while Xiaok attaches those artifacts to task, loop, or project surfaces.
 - v2.1.0 report renderer improves prose Markdown rendering: nested headings, lists, tables, and inline strong/em/code become formal HTML instead of leaking raw Markdown or over-escaped text into report previews.
-- The Xiaok v1.4.8 release does not bump plugin registry versions; the active plugin baseline remains slide `3.2.0` and report `2.1.0`.
+- The Xiaok v1.4.9 release does not bump plugin registry versions; the active plugin baseline remains slide `3.2.0` and report `2.1.0`.
 
 ### Design Philosophy
 
