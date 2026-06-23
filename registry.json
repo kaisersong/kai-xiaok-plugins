@@ -126,6 +126,29 @@
           "mcp__cua-driver__list_apps": "safe"
         }
       }
+    },
+    {
+      "name": "kai-canvas-creator",
+      "display_name": "无限画布",
+      "description": "tldraw 驱动的本地无限画布，支持手绘、标注、图片插入",
+      "category": "visual-collaboration",
+      "keywords": [
+        "canvas",
+        "tldraw",
+        "whiteboard",
+        "画布",
+        "白板",
+        "手绘"
+      ],
+      "repo": "kaisersong/kai-xiaok-plugins",
+      "path": "plugins/kai-canvas-creator",
+      "version": "0.1.0",
+      "platforms": ["darwin", "linux", "win32"],
+      "dependencies": {
+        "runtime": "node",
+        "install": "npm install && npm run build",
+        "test": "node tests/mcp.test.mjs"
+      }
     }
   ]
 }
