@@ -10,7 +10,7 @@
     "capabilities": ["infinite-canvas", "image-upload", "annotation", "ai-image-holder", "export"],
     "keywords": ["canvas", "tldraw", "whiteboard", "画布", "白板"]
   },
-  "skills": ["skills/canvas-open", "skills/canvas-insert", "skills/canvas-image-gen", "skills/canvas-annotate"],
+  "skills": ["skills/canvas-open", "skills/canvas-insert", "skills/canvas-image-gen", "skills/canvas-annotate", "skills/canvas-edit"],
   "mcpServers": [
     {
       "name": "canvas-server",

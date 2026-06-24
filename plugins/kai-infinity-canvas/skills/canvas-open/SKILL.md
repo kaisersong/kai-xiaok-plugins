@@ -23,7 +23,7 @@ When user says "恢复画布" / "之前的画布" / "打开之前画的" / "历�
 ## Step 0: List historical canvases (only when user wants to restore)
 
 ```bash
-node <plugin-dir>/scripts/start-canvas.mjs --list
+node /Users/song/projects/kai-xiaok-plugins/plugins/kai-infinity-canvas/scripts/start-canvas.mjs --list
 ```
 
 This prints a JSON array like:
@@ -35,7 +35,7 @@ Show the list to the user as a simple numbered list. Ask which one to open.
 When they choose, run:
 
 ```bash
-node <plugin-dir>/scripts/start-canvas.mjs --resume <chosen-id>
+node /Users/song/projects/kai-xiaok-plugins/plugins/kai-infinity-canvas/scripts/start-canvas.mjs --resume <chosen-id>
 ```
 
 Then proceed to Step 2.
@@ -43,7 +43,7 @@ Then proceed to Step 2.
 ## Step 1: Ensure server is running (new or current session)
 
 ```bash
-node <plugin-dir>/scripts/start-canvas.mjs
+node /Users/song/projects/kai-xiaok-plugins/plugins/kai-infinity-canvas/scripts/start-canvas.mjs
 ```
 
 No arguments needed. The script:

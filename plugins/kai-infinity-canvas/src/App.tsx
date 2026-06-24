@@ -203,6 +203,9 @@ function applyRemoteCanvasSnapshot(
   const sanitized = sanitizeCanvasSnapshotForTldraw(snapshot)
   if (!sanitized.snapshot) return { changedRecords: 0, skippedRecords: sanitized.skippedRecords }
 
+  // Reorder images to back so annotations (arrows, text) always appear on top
+  reorderImagesToBackInStore(sanitized.snapshot.store)
+
   const recordsToPut = Object.values(sanitized.snapshot.store).filter((record) => {
     const r = record as Record<string, unknown>
     const localRecord = editor!.store.get(r.id as string)
@@ -513,14 +516,25 @@ function DefaultShapeStyles() {
 
   useEffect(() => {
     if (!editor) return
-    // Set default text size to 'l' (36px) — default 'm' (24px) can appear small
-    const apply = () => {
+    // Set default text size to 'l' — tldraw resets styles on tool switch,
+    // so we re-apply whenever the active tool changes
+    const applyDefaults = () => {
       try { editor.setStyleForNextShapes(DefaultSizeStyle, 'l') } catch {}
     }
-    apply()
-    // Re-apply when editor becomes idle (after initial load)
-    const timer = setTimeout(apply, 500)
-    return () => clearTimeout(timer)
+
+    applyDefaults()
+
+    let lastTool = editor.getCurrentToolId()
+
+    const unsubscribe = editor.store.listen(() => {
+      const tool = editor.getCurrentToolId()
+      if (tool !== lastTool) {
+        lastTool = tool
+        applyDefaults()
+      }
+    })
+
+    return unsubscribe
   }, [editor])
 
   return null

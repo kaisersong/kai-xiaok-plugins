@@ -19,7 +19,7 @@
 import { spawn, execSync } from 'node:child_process'
 import { resolve, join, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { accessSync, readFileSync, unlinkSync, readdirSync, statSync, writeFileSync, mkdirSync } from 'node:fs'
+import { accessSync, readFileSync, unlinkSync, readdirSync, statSync, writeFileSync, mkdirSync, symlinkSync } from 'node:fs'
 import { tmpdir, homedir } from 'node:os'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
@@ -91,6 +91,13 @@ try {
       createdAt: new Date().toISOString(),
     }, null, 2))
   }
+} catch {}
+
+// Create/update 'active' symlink so MCP server can find the current canvas
+try {
+  const activeLink = join(canvasRoot, 'active')
+  try { unlinkSync(activeLink) } catch {}
+  symlinkSync(canvasDataDir, activeLink)
 } catch {}
 
 // ── Process management ────────────────────────────────────────────────

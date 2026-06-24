@@ -18,7 +18,7 @@ metadata: {"emoji":"✏️","os":["darwin","linux","win32"]}
 如果画布未运行，先启动：
 
 ```bash
-node <plugin-dir>/scripts/start-canvas.mjs [project-dir]
+node /Users/song/projects/kai-xiaok-plugins/plugins/kai-infinity-canvas/scripts/start-canvas.mjs [project-dir]
 ```
 
 ### 步骤 2：放置需要标注的图片
