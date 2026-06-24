@@ -1,0 +1,21 @@
+{
+  "name": "kai-infinity-canvas",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0",
+    "fractional-indexing-jittered": "^3.0.0",
+    "tldraw": "^3.13.3"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^4.3.0",
+    "vite": "^7.0.0"
+  }
+}

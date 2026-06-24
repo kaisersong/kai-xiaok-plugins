@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>无限画布</title>
+<style>
+* { margin:0; padding:0; box-sizing:border-box; }
+html, body { width:100%; height:100%; overflow:hidden; background:#fff; }
+#canvas-root { width:100%; height:100%; }
+.loading { display:flex; align-items:center; justify-content:center; height:100vh; font-family:system-ui; color:#64646b; }
+.spinner { width:32px; height:32px; border:3px solid #e4e4e7; border-top-color:#0b6e6e; border-radius:50%; animation:spin 0.8s linear infinite; margin-right:12px; }
+@keyframes spin { to { transform:rotate(360deg); } }
+</style>
+</head>
+<body>
+<div id="canvas-root">
+<div class="loading"><div class="spinner"></div>正在加载画布…</div>
+</div>
+<script>
+(function(){
+  var BASE = 'http://127.0.0.1:43217';
+  // Fetch the canvas HTML page and inject it
+  fetch(BASE + '/').then(function(r){ return r.text(); }).then(function(html){
+    // Rewrite asset URLs to absolute
+    html = html.replace(/src="\.\//g, 'src="' + BASE + '/');
+    html = html.replace(/href="\.\//g, 'href="' + BASE + '/');
+    html = html.replace(/src="\/assets\//g, 'src="' + BASE + '/assets/');
+    html = html.replace(/href="\/assets\//g, 'href="' + BASE + '/assets/');
+    document.open();
+    document.write(html);
+    document.close();
+  }).catch(function(e){
+    document.getElementById('canvas-root').innerHTML =
+      '<div class="loading">画布加载失败: ' + e.message + '<br>请确保画布服务正在运行</div>';
+  });
+})();
+</script>
+</body>
+</html>

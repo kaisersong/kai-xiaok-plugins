@@ -1,0 +1,34 @@
+{
+  "name": "kai-infinity-canvas",
+  "version": "0.2.0",
+  "description": "tldraw-powered local infinite canvas for xiaok",
+  "platforms": ["darwin", "linux", "win32"],
+  "interface": {
+    "display_name": "无限画布",
+    "short_description": "tldraw 驱动的本地无限画布，支持构思、标注、AI图片占位、PNG/SVG导出",
+    "category": "visual-collaboration",
+    "capabilities": ["infinite-canvas", "image-upload", "annotation", "ai-image-holder", "export"],
+    "keywords": ["canvas", "tldraw", "whiteboard", "画布", "白板"]
+  },
+  "skills": ["skills/canvas-open", "skills/canvas-insert", "skills/canvas-image-gen", "skills/canvas-annotate"],
+  "mcpServers": [
+    {
+      "name": "canvas-server",
+      "type": "stdio",
+      "command": "node",
+      "args": ["mcp-servers/canvas-server/server.mjs"]
+    }
+  ],
+  "toolPermissions": {
+    "defaultPermission": "write",
+    "tools": {
+      "kai_canvas_get_selection": "safe",
+      "kai_canvas_get_content": "safe",
+      "kai_canvas_export_png": "safe",
+      "kai_canvas_insert_image": "write"
+    }
+  },
+  "hooks": [],
+  "commands": [],
+  "agents": []
+}

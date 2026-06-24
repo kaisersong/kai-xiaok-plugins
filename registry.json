@@ -128,7 +128,7 @@
       }
     },
     {
-      "name": "kai-canvas-creator",
+      "name": "kai-infinity-canvas",
       "display_name": "无限画布",
       "description": "tldraw 驱动的本地无限画布，支持手绘、标注、图片插入",
       "category": "visual-collaboration",
@@ -141,7 +141,7 @@
         "手绘"
       ],
       "repo": "kaisersong/kai-xiaok-plugins",
-      "path": "plugins/kai-canvas-creator",
+      "path": "plugins/kai-infinity-canvas",
       "version": "0.1.0",
       "platforms": ["darwin", "linux", "win32"],
       "dependencies": {

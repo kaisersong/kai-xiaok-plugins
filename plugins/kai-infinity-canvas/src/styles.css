@@ -1,0 +1,249 @@
+* { box-sizing: border-box; }
+html, body, #root { width: 100%; height: 100%; margin: 0; }
+body { overflow: hidden; }
+.canvas-container { position: fixed; inset: 0; }
+
+/* ── AI Image Style Panel ──────────────────────────────────────────── */
+
+.kai-ai-image-style-panel {
+  padding: 8px 12px 12px;
+  border-top: 1px solid var(--color-panel-border, #e4e4e7);
+  margin-top: 8px;
+}
+
+.kai-ai-style-section {
+  margin-bottom: 12px;
+}
+.kai-ai-style-section:last-child { margin-bottom: 0; }
+
+.kai-ai-style-heading {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--color-text-1, #64646b);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-bottom: 6px;
+}
+
+.kai-ai-size-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.kai-ai-size-field {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex: 1;
+}
+.kai-ai-size-field span {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--color-text-1, #64646b);
+  min-width: 12px;
+}
+.kai-ai-size-field input {
+  width: 100%;
+  padding: 4px 6px;
+  border: 1px solid var(--color-panel-border, #d4d4d8);
+  border-radius: 6px;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  background: var(--color-panel, #fff);
+  color: var(--color-text, #000);
+  outline: none;
+  transition: border-color 0.15s;
+}
+.kai-ai-size-field input:focus {
+  border-color: var(--color-accent, #0b6e6e);
+}
+
+.kai-ai-aspect-lock {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border: 1px solid var(--color-panel-border, #d4d4d8);
+  border-radius: 6px;
+  background: var(--color-panel, #fff);
+  cursor: pointer;
+  padding: 0;
+  flex-shrink: 0;
+  transition: background 0.15s, border-color 0.15s;
+}
+.kai-ai-aspect-lock:hover {
+  background: var(--color-hover, #f4f4f5);
+}
+.kai-ai-aspect-lock[aria-pressed="true"] {
+  background: var(--color-accent, #0b6e6e);
+  border-color: var(--color-accent, #0b6e6e);
+}
+.kai-ai-aspect-lock[aria-pressed="true"] .kai-ai-lock-icon {
+  stroke: #fff;
+}
+.kai-ai-lock-icon {
+  width: 16px;
+  height: 16px;
+  fill: none;
+  stroke: var(--color-text, #000);
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.kai-ai-aspect-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 4px;
+}
+
+.kai-ai-aspect-preset {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  padding: 6px 2px;
+  border: 1px solid var(--color-panel-border, #d4d4d8);
+  border-radius: 6px;
+  background: var(--color-panel, #fff);
+  cursor: pointer;
+  font-size: 10px;
+  color: var(--color-text-1, #64646b);
+  transition: background 0.15s, border-color 0.15s;
+}
+.kai-ai-aspect-preset:hover {
+  background: var(--color-hover, #f4f4f5);
+}
+.kai-ai-aspect-preset[aria-pressed="true"] {
+  background: var(--color-accent, #0b6e6e);
+  border-color: var(--color-accent, #0b6e6e);
+  color: #fff;
+}
+.kai-ai-aspect-preset .kai-ai-aspect-icon {
+  display: block;
+  border: 1.5px solid currentColor;
+  border-radius: 2px;
+  background: transparent;
+}
+
+/* ── Skipped Records Notice ────────────────────────────────────────── */
+
+.kai-canvas-skipped-records {
+  position: fixed;
+  bottom: 48px;
+  right: 16px;
+  max-width: 340px;
+  padding: 10px 14px;
+  border-radius: 8px;
+  background: #fef3c7;
+  border: 1px solid #f59e0b;
+  font-size: 12px;
+  color: #78350f;
+  z-index: 9999;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+.kai-canvas-dismiss {
+  position: absolute;
+  top: 4px;
+  right: 6px;
+  width: 20px;
+  height: 20px;
+  border: none;
+  background: transparent;
+  color: #78350f;
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0;
+  border-radius: 4px;
+}
+.kai-canvas-dismiss:hover {
+  background: rgba(120, 53, 15, 0.12);
+}
+.kai-canvas-skipped-records strong { display: block; margin-bottom: 2px; }
+.kai-canvas-skipped-records details { margin-top: 4px; }
+.kai-canvas-skipped-records summary {
+  cursor: pointer;
+  font-size: 11px;
+  opacity: 0.8;
+}
+.kai-canvas-skipped-records ul {
+  margin: 4px 0 0;
+  padding-left: 16px;
+  font-size: 11px;
+  max-height: 120px;
+  overflow-y: auto;
+}
+.kai-canvas-skipped-records code {
+  font-family: monospace;
+  font-size: 10px;
+  background: rgba(0, 0, 0, 0.06);
+  padding: 1px 3px;
+  border-radius: 3px;
+}
+
+/* ── Export Menu ───────────────────────────────────────────────────── */
+
+.kai-export-menu {
+  position: fixed;
+  top: 16px;
+  right: 16px;
+  z-index: 300;
+}
+
+.kai-export-toggle {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border: 1px solid var(--color-panel-border, #e4e4e7);
+  border-radius: 8px;
+  background: var(--color-panel, #fff);
+  cursor: pointer;
+  padding: 0;
+  color: var(--color-text-1, #64646b);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+  transition: background 0.15s, color 0.15s;
+}
+.kai-export-toggle:hover {
+  background: var(--color-hover, #f4f4f5);
+  color: var(--color-text, #000);
+}
+.kai-export-toggle:disabled {
+  opacity: 0.5;
+  cursor: wait;
+}
+
+.kai-export-dropdown {
+  position: absolute;
+  top: 42px;
+  right: 0;
+  min-width: 140px;
+  padding: 4px;
+  border: 1px solid var(--color-panel-border, #e4e4e7);
+  border-radius: 8px;
+  background: var(--color-panel, #fff);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+
+.kai-export-dropdown button {
+  display: block;
+  width: 100%;
+  padding: 8px 12px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  cursor: pointer;
+  font-size: 13px;
+  text-align: left;
+  color: var(--color-text, #000);
+  transition: background 0.1s;
+}
+.kai-export-dropdown button:hover {
+  background: var(--color-hover, #f4f4f5);
+}
+.kai-export-dropdown button:disabled {
+  opacity: 0.5;
+  cursor: wait;
+}
