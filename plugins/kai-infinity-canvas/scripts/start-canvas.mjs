@@ -97,7 +97,11 @@ try {
 try {
   const activeLink = join(canvasRoot, 'active')
   try { unlinkSync(activeLink) } catch {}
-  symlinkSync(canvasDataDir, activeLink)
+  // Point at the canvas DATA dir (<session>/canvas), not the session root, so
+  // the MCP reading KAI_CANVAS_DIR=active resolves to the actual tldraw scene.
+  const activeTarget = join(canvasDataDir, 'canvas')
+  try { mkdirSync(activeTarget, { recursive: true }) } catch {}
+  symlinkSync(activeTarget, activeLink)
 } catch {}
 
 // ── Process management ────────────────────────────────────────────────

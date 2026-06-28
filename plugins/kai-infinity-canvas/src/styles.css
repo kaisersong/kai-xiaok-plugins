@@ -183,6 +183,14 @@ body { overflow: hidden; }
   border-radius: 3px;
 }
 
+/* ── tldraw watermark: 缩小 + 半透明 ────────────────────────────────── */
+
+.tl-watermark_SEE-LICENSE {
+  transform: scale(0.55);
+  transform-origin: bottom right;
+  opacity: 0.3;
+}
+
 /* ── Export Menu ───────────────────────────────────────────────────── */
 
 .kai-export-menu {
