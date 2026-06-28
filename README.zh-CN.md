@@ -14,17 +14,17 @@
 
 ## 当前发布基线
 
-- Xiaok Desktop v1.4.15 继续把本仓库作为随包插件来源；release workflow 会从默认分支 checkout 本仓库，因此打 tag 前必须保证插件 README、registry 和 renderer bundle 构建说明已经同步。
+- Xiaok Desktop v1.4.16 继续把本仓库作为随包插件来源；release workflow 会从默认分支 checkout 本仓库，因此打 tag 前必须保证插件 README、registry 和 renderer bundle 构建说明已经同步。
 - `kai-slide-creator` 当前注册版本为 `3.2.0`，用于 HTML 演示文稿/幻灯片生成。
 - `kai-report-creator` 当前注册版本为 `2.1.0`，用于 HTML 报告、看板、KPI 摘要和可导出交互报告。
 - `kai-infinity-canvas` 当前注册版本为 `0.1.0`，用于本地无限画布、图片标注、MCP 图片插入和 PNG/SVG 导出。
 - xiaok Desktop release workflow 会 checkout 本仓库，构建 `kai-report-creator` 的 `report-renderer` bundle，并下载 slide renderer 所需 Python wheels 后再打包 macOS/Windows 安装器。
-- v1.4.15 Desktop 打包会带上 `kai-infinity-canvas/scripts/**`，安装包内可通过 `start-canvas.mjs` 启动画布插件；`active` symlink 现在指向真实 `<session>/canvas` 数据目录，MCP 读取 `KAI_CANVAS_DIR=active` 时能解析到 tldraw scene。
+- v1.4.16 Desktop 打包会带上 `kai-infinity-canvas/scripts/**`，安装包内可通过 `start-canvas.mjs` 启动画布插件；`active` symlink 现在指向真实 `<session>/canvas` 数据目录，MCP 读取 `KAI_CANVAS_DIR=active` 时能解析到 tldraw scene。
 - `kai-infinity-canvas` 预览层缩小并降低 tldraw watermark 透明度，避免水印遮挡画布内容。
 - 插件边界保持不变：LLM 生成结构化 IR，MCP renderer 负责确定性 HTML/CSS/JS 输出、shell 结构和质量门禁。
-- Xiaok v1.4.15 的自动化/Loop 输出预览、知识库产物预览和 Canvas 产物编辑会复用同一套 artifact 预览边界：插件负责生成可检查的 HTML 产物，Xiaok 负责把产物挂到任务、loop、项目或编辑界面。
+- Xiaok v1.4.16 的自动化/Loop 输出预览、知识库产物预览和 Canvas 产物编辑会复用同一套 artifact 预览边界：插件负责生成可检查的 HTML 产物，Xiaok 负责把产物挂到任务、loop、项目或编辑界面。
 - v2.1.0 report renderer 加强正文 Markdown 解析：章节内标题、列表、表格、inline strong/em/code 会转成正式 HTML，避免报告预览出现未渲染 Markdown 或不可读转义字符。
-- 本次 Xiaok v1.4.15 release 不提升插件注册版本；当前插件 baseline 仍是 slide `3.2.0`、report `2.1.0`、canvas `0.1.0`。
+- 本次 Xiaok v1.4.16 release 不提升插件注册版本；当前插件 baseline 仍是 slide `3.2.0`、report `2.1.0`、canvas `0.1.0`。
 
 ## 快速安装
 
