@@ -14,17 +14,17 @@
 
 ## 当前发布基线
 
-- Xiaok Desktop v1.4.16 继续把本仓库作为随包插件来源；release workflow 会从默认分支 checkout 本仓库，因此打 tag 前必须保证插件 README、registry 和 renderer bundle 构建说明已经同步。
+- Xiaok Desktop v1.4.20 继续把本仓库作为随包插件来源；release workflow 会从默认分支 checkout 本仓库，因此打 tag 前必须保证插件 README、registry 和 renderer bundle 构建说明已经同步。
 - `kai-slide-creator` 当前注册版本为 `3.2.0`，用于 HTML 演示文稿/幻灯片生成。
 - `kai-report-creator` 当前注册版本为 `2.1.0`，用于 HTML 报告、看板、KPI 摘要和可导出交互报告。
 - `kai-infinity-canvas` 当前注册版本为 `0.1.0`，用于本地无限画布、图片标注、MCP 图片插入和 PNG/SVG 导出。
 - 桌面端 release workflow 会 checkout 本仓库，构建 `kai-report-creator` 的 `report-renderer` bundle，并下载 slide renderer 所需 Python wheels 后再打包 macOS/Windows 安装器。
-- v1.4.16 Desktop 打包会带上 `kai-infinity-canvas/scripts/**`，安装包内可通过 `start-canvas.mjs` 启动画布插件；`active` symlink 现在指向真实 `<session>/canvas` 数据目录，MCP 读取 `KAI_CANVAS_DIR=active` 时能解析到 tldraw scene。
-- `kai-infinity-canvas` 预览层缩小并降低 tldraw watermark 透明度，避免水印遮挡画布内容。
-- 插件仍遵循”LLM 生成结构化 IR，MCP renderer 负责确定性 HTML 输出”的边界，避免把最终 HTML 生成责任交给模型自由发挥。
-- Xiaok v1.4.16 的自动化/Loop 输出预览、知识库产物预览和 Canvas 产物编辑会复用同一套 artifact 预览边界：插件负责生成可检查的 HTML 产物，Xiaok 负责把产物挂到任务、loop、项目或编辑界面。
-- v2.1.0 report renderer 加强了正文 Markdown 解析：章节内标题、列表、表格、inline strong/em/code 会转成正式 HTML，不再在报告预览里留下大段未渲染 Markdown 或不可读转义字符。
-- 本次 Xiaok v1.4.16 release 不提升插件注册版本；当前插件 baseline 仍是 slide `3.2.0`、report `2.1.0`、canvas `0.1.0`。
+- v1.4.20 Desktop 打包仍会带上 `kai-infinity-canvas/scripts/**`，安装包内可通过 `start-canvas.mjs` 启动画布插件；`active` symlink 指向真实 `<session>/canvas` 数据目录，MCP 读取 `KAI_CANVAS_DIR=active` 时能解析到 tldraw scene。
+- `kai-infinity-canvas` 预览层继续缩小并降低 tldraw watermark 透明度，避免水印遮挡画布内容。
+- 插件边界保持不变：LLM 生成结构化 IR，MCP renderer 负责确定性 HTML/CSS/JS 输出、shell 结构和质量门禁。
+- Xiaok v1.4.20 的自动化/Loop 输出预览、知识库产物预览、Canvas 产物编辑和 Canvas PDF 渲染会复用同一套 artifact 预览边界：插件负责生成可检查的产物，Xiaok 负责把产物挂到任务、loop、项目或编辑界面。
+- v2.1.0 report renderer 继续加强正文 Markdown 解析：章节内标题、列表、表格、inline strong/em/code 会转成正式 HTML，避免报告预览出现未渲染 Markdown 或不可读转义字符。
+- 本次 Xiaok v1.4.20 release 不提升插件注册版本；当前插件 baseline 仍是 slide `3.2.0`、report `2.1.0`、canvas `0.1.0`。
 
 ## 快速安装
 
@@ -263,17 +263,21 @@ gh release create v3.2.0 --generate-notes
 |--------|-------------|------------|---------|
 | [kai-slide-creator](plugins/kai-slide-creator) | HTML slide decks with 22 style presets | slide-renderer | Python |
 | [kai-report-creator](plugins/kai-report-creator) | HTML reports with 8 themes and KPI/summary quality gates | report-renderer | Node.js |
+| [kai-infinity-canvas](plugins/kai-infinity-canvas) | Local tldraw infinite canvas with drawing, annotations, image insertion, and export | canvas-server | Node.js |
 
 ### Current Release Baseline
 
-- Xiaok Desktop v1.4.11 continues to package this repository as the bundled plugin source. The desktop release workflow checks out the default branch, so README, registry, and renderer build guidance must be synchronized before the release tag is pushed.
+- Xiaok Desktop v1.4.20 continues to package this repository as the bundled plugin source. The desktop release workflow checks out the default branch, so README, registry, and renderer build guidance must be synchronized before the release tag is pushed.
 - `kai-slide-creator` is registered at `3.2.0` for HTML presentation and slide generation.
 - `kai-report-creator` is registered at `2.1.0` for HTML reports, dashboards, KPI summaries, and exportable interactive reports.
+- `kai-infinity-canvas` is registered at `0.1.0` for local infinite canvas sessions, image annotation, MCP image insertion, and PNG/SVG export.
 - The xiaok Desktop release workflow checks out this repository, builds the `kai-report-creator` `report-renderer` bundle, downloads the Python wheels needed by the slide renderer, and then packages macOS/Windows installers.
-- Plugins keep the core boundary intact: the LLM emits structured IR, while the MCP renderer owns deterministic HTML/CSS/JS output.
-- Xiaok v1.4.11 Automations, Loop output previews, and Knowledge Base artifact previews reuse the same artifact-preview boundary: plugins generate inspectable HTML artifacts, while Xiaok attaches those artifacts to task, loop, or project surfaces.
+- v1.4.20 Desktop packaging still includes `kai-infinity-canvas/scripts/**`, so installed builds can start the canvas plugin through `start-canvas.mjs`; the `active` symlink points to the real `<session>/canvas` data directory, allowing MCP to resolve `KAI_CANVAS_DIR=active` to a tldraw scene.
+- `kai-infinity-canvas` preview keeps the smaller preview layer and lower tldraw watermark opacity so the watermark does not block canvas content.
+- Plugins keep the core boundary intact: the LLM emits structured IR, while MCP renderers own deterministic HTML/CSS/JS output, shell structure, and quality gates.
+- Xiaok v1.4.20 Automations/Loop output previews, Knowledge Base artifact previews, Canvas artifact editing, and Canvas PDF rendering reuse the same artifact-preview boundary: plugins generate inspectable artifacts, while Xiaok attaches, previews, edits, or displays results through Desktop artifact surfaces.
 - v2.1.0 report renderer improves prose Markdown rendering: nested headings, lists, tables, and inline strong/em/code become formal HTML instead of leaking raw Markdown or over-escaped text into report previews.
-- The Xiaok v1.4.11 release does not bump plugin registry versions; the active plugin baseline remains slide `3.2.0` and report `2.1.0`.
+- The Xiaok v1.4.20 release does not bump plugin registry versions; the active plugin baseline remains slide `3.2.0`, report `2.1.0`, and canvas `0.1.0`.
 
 ### Design Philosophy
 
