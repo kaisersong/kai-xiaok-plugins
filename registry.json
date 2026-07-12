@@ -49,6 +49,32 @@
       }
     },
     {
+      "name": "kai-meeting-assistant",
+      "display_name": "会议助手",
+      "description": "Xiaok Desktop AI 录音的本地 Whisper 转写回退与会议纪要总结能力",
+      "category": "productivity",
+      "keywords": [
+        "meeting",
+        "recording",
+        "transcription",
+        "whisper",
+        "minutes",
+        "会议",
+        "录音",
+        "转写",
+        "纪要"
+      ],
+      "repo": "kaisersong/kai-xiaok-plugins",
+      "path": "plugins/kai-meeting-assistant",
+      "version": "0.1.0",
+      "platforms": ["darwin", "linux", "win32"],
+      "dependencies": {
+        "runtime": "python3",
+        "install": "pip3 install -r mcp-servers/meeting-transcriber/requirements.txt",
+        "test": "python3 -m pytest tests/test_meeting_transcriber.py -q"
+      }
+    },
+    {
       "name": "cua-computer-use",
       "display_name": "Computer Use for Mac",
       "description": "通过 CUA Driver 在 macOS 上观察和操作本机应用",

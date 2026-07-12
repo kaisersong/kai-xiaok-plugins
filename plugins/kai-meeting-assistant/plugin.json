@@ -1,0 +1,23 @@
+{
+  "name": "kai-meeting-assistant",
+  "version": "0.1.0",
+  "interface": {
+    "display_name": "会议助手",
+    "short_description": "本地会议录音转写与纪要生成",
+    "category": "productivity",
+    "capabilities": ["meeting-transcription", "meeting-summary"],
+    "keywords": ["meeting", "transcription", "whisper", "minutes"]
+  },
+  "skills": ["skills/meeting-summarizer"],
+  "mcpServers": [
+    {
+      "name": "meeting-transcriber",
+      "type": "stdio",
+      "command": "python3",
+      "args": ["mcp-servers/meeting-transcriber/server.py"]
+    }
+  ],
+  "hooks": [],
+  "commands": [],
+  "agents": []
+}
