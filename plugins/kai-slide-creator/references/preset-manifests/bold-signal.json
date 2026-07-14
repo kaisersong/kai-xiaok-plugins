@@ -1,0 +1,134 @@
+{
+  "version": 1,
+  "preset": "Bold Signal",
+  "support_state": "unified_profile_renderer",
+  "renderer_strategy": "unified_profile",
+  "source_reference": "references/bold-signal.md",
+  "fonts": [
+    "-apple-system",
+    "archivo black",
+    "monospace",
+    "sans-serif",
+    "space grotesk",
+    "system-ui"
+  ],
+  "tokens": {
+    "css_vars": {
+      "--bg-gradient": "#000",
+      "--bg-primary": "#1a1a1a",
+      "--card-bg": "#222",
+      "--slide-count": "#2d2d2d",
+      "--text-body": "#ff5722",
+      "--text-muted": "#ffffff",
+      "--text-on-card": "rgba(255,255,255,0.03)",
+      "--text-primary": "rgba(255,255,255,0.05)"
+    },
+    "colors": [
+      "#000",
+      "#1a1a1a",
+      "#222",
+      "#2d2d2d",
+      "#ff5722",
+      "#ffffff",
+      "rgba(255,255,255,0.03)",
+      "rgba(255,255,255,0.05)",
+      "rgba(255,255,255,0.06)",
+      "rgba(255,255,255,0.08)"
+    ]
+  },
+  "layout_families": [
+    "signal_cover",
+    "signal_cards",
+    "signal_split",
+    "signal_timeline",
+    "signal_close"
+  ],
+  "signature_components": [
+    "profile-slide",
+    "profile-content",
+    "preset-content",
+    "profile-title"
+  ],
+  "required_visible_components": [
+    {
+      "name": "profile-slide",
+      "selectors": [
+        "section.profile-slide"
+      ],
+      "min_count": 1
+    },
+    {
+      "name": "profile-content",
+      "selectors": [
+        ".profile-content"
+      ],
+      "min_count": 1
+    },
+    {
+      "name": "preset-content",
+      "selectors": [
+        ".preset-bold-signal-content"
+      ],
+      "min_count": 1
+    },
+    {
+      "name": "profile-title",
+      "selectors": [
+        ".profile-fit-title"
+      ],
+      "min_count": 1
+    }
+  ],
+  "decorative_selectors": [],
+  "non_critical_selectors": [
+    ".slide-num-label",
+    ".progress-bar",
+    "#presenter-view"
+  ],
+  "forbidden_substitutions": [
+    "generic-theme-shell",
+    "marker-only-style-signature",
+    "empty-component-shell"
+  ],
+  "style_fidelity": {
+    "minimum_coverage": 0.85,
+    "minimum_integrity": 1.0,
+    "required_selector_groups": [
+      {
+        "name": "preset-visual-component",
+        "selectors": [
+          ".bold-hero-card",
+          ".bold-label",
+          ".bold-callout",
+          ".bold-bullet-list"
+        ],
+        "match": "any",
+        "scope": "document",
+        "weight": 1.0,
+        "minimum_group_score": 1.0,
+        "content_required": true
+      },
+      {
+        "name": "preset-content-spread",
+        "selectors": [
+          ".preset-bold-signal-content"
+        ],
+        "match": "any",
+        "scope": "slide",
+        "page_buckets": [
+          "content"
+        ],
+        "weight": 1.0,
+        "minimum_group_score": 0.7,
+        "minimum_bucket_count": 1,
+        "content_required": true
+      }
+    ],
+    "negative_fixtures": [
+      "generic-shell",
+      "marker-only",
+      "single-slide-signature-dump",
+      "full-slide-image"
+    ]
+  }
+}

@@ -1,0 +1,138 @@
+{
+  "version": 1,
+  "preset": "Neo-Brutalism",
+  "support_state": "unified_profile_renderer",
+  "renderer_strategy": "unified_profile",
+  "source_reference": "references/neo-brutalism.md",
+  "fonts": [
+    "-apple-system",
+    "courier new",
+    "monospace",
+    "noto sans sc",
+    "sans-serif",
+    "space grotesk",
+    "system-ui"
+  ],
+  "tokens": {
+    "css_vars": {
+      "--bg": "#000",
+      "--body-size": "#000000",
+      "--btn-bg": "#1a1a2e",
+      "--btn-text": "#e0e0e0",
+      "--content-gap": "#ffeb3b",
+      "--h2-size": "#fff",
+      "--slide-padding": "#ffffff",
+      "--small-size": "rgba(0,0,0,0.08)",
+      "--text": "rgba(0,0,0,0.18)",
+      "--title-size": "rgba(0,0,0,0.2)"
+    },
+    "colors": [
+      "#000",
+      "#000000",
+      "#1a1a2e",
+      "#e0e0e0",
+      "#ffeb3b",
+      "#fff",
+      "#ffffff",
+      "rgba(0,0,0,0.08)",
+      "rgba(0,0,0,0.18)",
+      "rgba(0,0,0,0.2)",
+      "rgba(0,0,0,0.28)"
+    ]
+  },
+  "layout_families": [
+    "brutalist_cover",
+    "brutalist_blocks",
+    "brutalist_split",
+    "brutalist_manifesto",
+    "brutalist_close"
+  ],
+  "signature_components": [
+    "profile-slide",
+    "profile-content",
+    "preset-content",
+    "profile-title"
+  ],
+  "required_visible_components": [
+    {
+      "name": "profile-slide",
+      "selectors": [
+        "section.profile-slide"
+      ],
+      "min_count": 1
+    },
+    {
+      "name": "profile-content",
+      "selectors": [
+        ".profile-content"
+      ],
+      "min_count": 1
+    },
+    {
+      "name": "preset-content",
+      "selectors": [
+        ".preset-neo-brutalism-content"
+      ],
+      "min_count": 1
+    },
+    {
+      "name": "profile-title",
+      "selectors": [
+        ".profile-fit-title"
+      ],
+      "min_count": 1
+    }
+  ],
+  "decorative_selectors": [],
+  "non_critical_selectors": [
+    ".slide-num-label",
+    ".progress-bar",
+    "#presenter-view"
+  ],
+  "forbidden_substitutions": [
+    "generic-theme-shell",
+    "marker-only-style-signature",
+    "empty-component-shell"
+  ],
+  "style_fidelity": {
+    "minimum_coverage": 0.85,
+    "minimum_integrity": 1.0,
+    "required_selector_groups": [
+      {
+        "name": "preset-visual-component",
+        "selectors": [
+          ".brute-title",
+          ".brute-h2",
+          ".style-card",
+          ".brute-tag"
+        ],
+        "match": "any",
+        "scope": "document",
+        "weight": 1.0,
+        "minimum_group_score": 1.0,
+        "content_required": true
+      },
+      {
+        "name": "preset-content-spread",
+        "selectors": [
+          ".preset-neo-brutalism-content"
+        ],
+        "match": "any",
+        "scope": "slide",
+        "page_buckets": [
+          "content"
+        ],
+        "weight": 1.0,
+        "minimum_group_score": 0.7,
+        "minimum_bucket_count": 1,
+        "content_required": true
+      }
+    ],
+    "negative_fixtures": [
+      "generic-shell",
+      "marker-only",
+      "single-slide-signature-dump",
+      "full-slide-image"
+    ]
+  }
+}

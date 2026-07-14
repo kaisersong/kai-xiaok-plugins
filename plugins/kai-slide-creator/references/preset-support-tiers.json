@@ -2,6 +2,44 @@
   "version": 1,
   "policy": {
     "phase_1_focus": "Deepen and regression-gate the core four before expanding the default recommendation surface.",
+    "support_states": {
+      "native_deterministic_core": [
+        "Swiss Modern",
+        "Enterprise Dark",
+        "Data Story",
+        "Blue Sky",
+        "Chinese Chan"
+      ],
+      "unified_profile_renderer": [
+        "Aurora Mesh",
+        "Bold Signal",
+        "Creative Voltage",
+        "Dark Botanical",
+        "Electric Studio",
+        "Glassmorphism",
+        "Modern Newspaper",
+        "Neo-Brutalism",
+        "Neo-Retro Dev Deck",
+        "Neon Cyber",
+        "Notebook Tabs",
+        "Paper & Ink",
+        "Pastel Geometry",
+        "Split Pastel",
+        "Strategy Consulting",
+        "Terminal Green",
+        "Vintage Editorial"
+      ],
+      "unsupported_archive": []
+    },
+    "default_recommendation_surface": [
+      "Swiss Modern",
+      "Enterprise Dark",
+      "Data Story",
+      "Blue Sky"
+    ],
+    "contextual_recommendation_surface": [
+      "Chinese Chan"
+    ],
     "default_visible_shortlist_phase_1": [
       "Swiss Modern",
       "Enterprise Dark",
@@ -14,7 +52,17 @@
       "Data Story",
       "Blue Sky"
     ],
-    "explicit_user_selection": "Honor any current preset when explicitly requested unless it has been formally archived.",
+    "explicit_user_selection": "All built-in presets render on explicit user selection. Native deterministic core presets use the native renderer; other complete reference-backed built-ins use the unified profile renderer with strict validation. Unknown, archived, or invalid custom presets fail closed with structured alternatives.",
+    "generator_ready_presets": [
+      "Swiss Modern",
+      "Enterprise Dark",
+      "Data Story",
+      "Blue Sky",
+      "Chinese Chan"
+    ],
+    "contextual_recommendation_presets": [
+      "Chinese Chan"
+    ],
     "next_editorial_candidate": "Paper & Ink"
   },
   "tiers": {
@@ -25,27 +73,26 @@
       "Blue Sky"
     ],
     "supported": [
-      "Paper & Ink",
-      "Glassmorphism",
       "Chinese Chan",
-      "Bold Signal",
       "Aurora Mesh",
-      "Terminal Green",
-      "Strategy Consulting"
-    ],
-    "experimental": [
-      "Electric Studio",
+      "Bold Signal",
       "Creative Voltage",
       "Dark Botanical",
+      "Electric Studio",
+      "Glassmorphism",
       "Modern Newspaper",
+      "Neo-Brutalism",
+      "Neo-Retro Dev Deck",
       "Neon Cyber",
       "Notebook Tabs",
+      "Paper & Ink",
       "Pastel Geometry",
       "Split Pastel",
-      "Vintage Editorial",
-      "Neo-Brutalism",
-      "Neo-Retro Dev Deck"
+      "Strategy Consulting",
+      "Terminal Green",
+      "Vintage Editorial"
     ],
+    "experimental": [],
     "archive_candidate": []
   }
 }

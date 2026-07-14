@@ -4,6 +4,8 @@ Verifies the plugin as a whole: required files, manifest validity,
 end-to-end workflow, preset listing, and schema retrieval.
 """
 
+import ast
+import hashlib
 import json
 import sys
 import tempfile
@@ -19,6 +21,7 @@ SERVER_DIR = PLUGIN_ROOT / "mcp-servers" / "slide-renderer"
 sys.path.insert(0, str(SERVER_DIR))
 
 from server import validate_brief, render_slide, list_presets, get_schema
+from preset_contracts import load_preset_contract, validate_preset_fidelity
 
 FIXTURES_DIR = SERVER_DIR / "tests" / "fixtures"
 
@@ -36,10 +39,19 @@ class TestPluginHasRequiredFiles:
 
     REQUIRED_FILES = [
         "plugin.json",
+        "vendor-manifest.json",
         "skills/slide-planner/SKILL.md",
         "mcp-servers/slide-renderer/server.py",
+        "mcp-servers/slide-renderer/preset_contracts.py",
+        "mcp-servers/slide-renderer/style_signature_eval.py",
+        "mcp-servers/slide-renderer/preset_runtime_qa.py",
         "schemas/generation-brief.schema.json",
+        "schemas/preset-contract.schema.json",
+        "schemas/preset-manifest.schema.json",
         "references/preset-support-tiers.json",
+        "references/preset-contracts/blue-sky.json",
+        "references/preset-manifests/blue-sky.json",
+        "references/blue-sky-starter.html",
     ]
 
     @pytest.mark.parametrize("rel_path", REQUIRED_FILES,
@@ -186,3 +198,86 @@ class TestGetSchemaReturnsValidJsonSchema:
         required = schema.get("required", [])
         assert "schema_version" in required, \
             f"'schema_version' not in required fields: {required}"
+
+
+class TestVendoredPresetFidelity:
+    REQUIRED_RENDERER_SCRIPTS = {
+        "check_style_fidelity.py",
+        "low_context.py",
+        "preset_capabilities.py",
+        "preset_contracts.py",
+        "preset_profile_renderer.py",
+        "preset_profile_specs.py",
+        "preset_runtime_qa.py",
+        "preset_support.py",
+        "style_signature_eval.py",
+        "title_profiles.py",
+        "validate_html.py",
+    }
+
+    def test_vendor_preserves_plugin_owned_custom_themes(self):
+        vendor_script = (PLUGIN_ROOT.parents[1] / "scripts" / "vendor.sh").read_text(encoding="utf-8")
+
+        assert "rsync -a --exclude '.DS_Store' \"$src/themes/\" \"$dst/themes/\"" in vendor_script
+        assert "rsync -a --delete --exclude '.DS_Store' \"$src/themes/\"" not in vendor_script
+
+    def test_vendor_manifest_binds_complete_dependency_closure(self):
+        manifest = json.loads((PLUGIN_ROOT / "vendor-manifest.json").read_text(encoding="utf-8"))
+        recorded = manifest["files"]
+        expected = {
+            f"mcp-servers/slide-renderer/{name}"
+            for name in self.REQUIRED_RENDERER_SCRIPTS
+        }
+        for root_name in ("schemas", "references", "themes"):
+            root = PLUGIN_ROOT / root_name
+            expected.update(str(path.relative_to(PLUGIN_ROOT)) for path in root.rglob("*") if path.is_file())
+        expected.update(
+            str(path.relative_to(PLUGIN_ROOT))
+            for path in (PLUGIN_ROOT / "demos").rglob("*.html")
+            if path.is_file()
+        )
+
+        assert manifest["version"] == 1
+        assert manifest["source"] == "slide-creator"
+        assert set(recorded) == expected
+        for rel_path, expected_hash in recorded.items():
+            actual_hash = hashlib.sha256((PLUGIN_ROOT / rel_path).read_bytes()).hexdigest()
+            assert actual_hash == expected_hash, rel_path
+
+    def test_vendored_renderer_scripts_cover_local_direct_imports(self):
+        recorded = json.loads((PLUGIN_ROOT / "vendor-manifest.json").read_text(encoding="utf-8"))["files"]
+        available_modules = {path.stem for path in SERVER_DIR.glob("*.py")}
+        for name in self.REQUIRED_RENDERER_SCRIPTS:
+            tree = ast.parse((SERVER_DIR / name).read_text(encoding="utf-8"))
+            imports = {
+                imported.name.split(".")[0]
+                for node in ast.walk(tree)
+                if isinstance(node, ast.Import)
+                for imported in node.names
+            }
+            imports.update(
+                node.module.split(".")[0]
+                for node in ast.walk(tree)
+                if isinstance(node, ast.ImportFrom) and node.level == 0 and node.module
+            )
+            for module in imports & available_modules:
+                assert f"mcp-servers/slide-renderer/{module}.py" in recorded, (name, module)
+
+    def test_all_contracts_and_manifests_are_vendored(self):
+        contracts = sorted((PLUGIN_ROOT / "references" / "preset-contracts").glob("*.json"))
+        manifests = sorted((PLUGIN_ROOT / "references" / "preset-manifests").glob("*.json"))
+
+        assert len(contracts) == 22
+        assert len(manifests) == 22
+        assert load_preset_contract("Blue Sky")["runtime_fidelity"]["runtime_owner"] == "blue-sky-stage-track"
+
+    def test_blue_sky_render_passes_vendored_canonical_fidelity(self):
+        brief = json.loads(load_fixture("valid-brief.json"))
+        brief["brief_id"] = "plugin-blue-sky-fidelity"
+        brief["style"]["preset"] = "Blue Sky"
+
+        result = render_slide(json.dumps(brief, ensure_ascii=False))
+
+        assert result.success is True, result.errors
+        report = validate_preset_fidelity(result.html, "Blue Sky", mode="product")
+        assert report["pass"] is True, report

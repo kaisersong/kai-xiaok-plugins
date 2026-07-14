@@ -40,40 +40,57 @@ vendor_slide_creator() {
 
     info "Vendoring slide-creator rendering engine from $src"
 
-    # 1. 渲染引擎脚本 → mcp-servers/slide-renderer/
+    # 1. 渲染引擎与保真度 QA 依赖闭包 → mcp-servers/slide-renderer/
     local server_dst="$dst/mcp-servers/slide-renderer"
-    for script in low_context.py validate_html.py preset_support.py title_profiles.py; do
-        if [[ -f "$src/scripts/$script" ]]; then
-            cp "$src/scripts/$script" "$server_dst/$script"
-            info "  scripts/$script → mcp-servers/slide-renderer/$script"
-        else
-            warn "  MISSING: scripts/$script"
-        fi
+    local scripts=(
+        low_context.py
+        validate_html.py
+        preset_support.py
+        title_profiles.py
+        preset_capabilities.py
+        preset_profile_renderer.py
+        preset_profile_specs.py
+        preset_contracts.py
+        style_signature_eval.py
+        preset_runtime_qa.py
+        check_style_fidelity.py
+    )
+    for script in "${scripts[@]}"; do
+        [[ -f "$src/scripts/$script" ]] || error "MISSING required dependency: scripts/$script"
+        cp "$src/scripts/$script" "$server_dst/$script"
+        info "  scripts/$script → mcp-servers/slide-renderer/$script"
     done
 
-    # 2. BRIEF schema → schemas/
-    if [[ -f "$src/schemas/generation-brief.schema.json" ]]; then
-        cp "$src/schemas/generation-brief.schema.json" "$dst/schemas/generation-brief.schema.json"
-        info "  schemas/generation-brief.schema.json"
+    # 2. 全部 schemas（BRIEF + preset contract/manifest）→ schemas/
+    if [[ -d "$src/schemas" ]]; then
+        mkdir -p "$dst/schemas"
+        rsync -a --delete --exclude '.DS_Store' "$src/schemas/" "$dst/schemas/"
+        info "  schemas/ synced"
     else
-        warn "  MISSING: schemas/generation-brief.schema.json"
+        error "MISSING required dependency: schemas/"
     fi
 
-    # 3. Preset reference files → references/
+    # 3. Preset references, contracts, manifests and native starters → references/
     local ref_dst="$dst/references"
-    for ref in "$src/references/"*.md "$src/references/"*.json; do
-        if [[ -f "$ref" ]]; then
-            cp "$ref" "$ref_dst/$(basename "$ref")"
-        fi
-    done
+    mkdir -p "$ref_dst"
+    rsync -a --delete --exclude '.DS_Store' "$src/references/" "$ref_dst/"
     local ref_count
     ref_count=$(find "$ref_dst" -type f | wc -l | tr -d ' ')
     info "  references/ → $ref_count files"
 
-    # 4. Custom themes → themes/
+    # 4. Profile renderers derive their visual shell from canonical demos.
+    if [[ -d "$src/demos" ]]; then
+        mkdir -p "$dst/demos"
+        rsync -a --delete --include '*/' --include '*.html' --exclude '*' "$src/demos/" "$dst/demos/"
+        info "  demos/*.html synced"
+    else
+        error "MISSING required dependency: demos/"
+    fi
+
+    # 5. Custom themes → themes/
     if [[ -d "$src/themes" ]]; then
         mkdir -p "$dst/themes"
-        rsync -a --delete --exclude '.DS_Store' "$src/themes/" "$dst/themes/"
+        rsync -a --exclude '.DS_Store' "$src/themes/" "$dst/themes/"
         local theme_count
         theme_count=$(find "$dst/themes" -type f | wc -l | tr -d ' ')
         info "  themes/ → $theme_count files"
@@ -81,12 +98,67 @@ vendor_slide_creator() {
         warn "  MISSING: themes/"
     fi
 
-    # 5. 保留源 repo 的 preset support matrix
+    # 6. 保留源 repo 的 preset support matrix
     if [[ -s "$ref_dst/preset-support-tiers.json" ]]; then
         info "  references/preset-support-tiers.json copied"
     else
-        warn "  MISSING or empty: references/preset-support-tiers.json"
+        error "MISSING or empty required dependency: references/preset-support-tiers.json"
     fi
+
+    # 7. Bind plugin CI to the complete, byte-exact dependency closure.
+    local source_commit source_dirty vendored_scripts
+    source_commit="$(git -C "$src" rev-parse HEAD 2>/dev/null || printf 'unknown')"
+    source_dirty=false
+    if [[ -n "$(git -C "$src" status --porcelain 2>/dev/null || true)" ]]; then
+        source_dirty=true
+    fi
+    vendored_scripts="$(printf '%s\n' "${scripts[@]}")"
+    SOURCE_COMMIT="$source_commit" \
+    SOURCE_DIR="$src" \
+    SOURCE_DIRTY="$source_dirty" \
+    VENDORED_SCRIPTS="$vendored_scripts" \
+    VENDOR_DEST="$dst" \
+    python3 - <<'PY'
+import hashlib
+import json
+import os
+from pathlib import Path
+
+destination = Path(os.environ["VENDOR_DEST"])
+paths = {
+    Path("mcp-servers/slide-renderer") / name
+    for name in os.environ["VENDORED_SCRIPTS"].splitlines()
+    if name
+}
+for root_name in ("schemas", "references", "themes"):
+    root = destination / root_name
+    if root.is_dir():
+        paths.update(path.relative_to(destination) for path in root.rglob("*") if path.is_file())
+demos = destination / "demos"
+if demos.is_dir():
+    paths.update(path.relative_to(destination) for path in demos.rglob("*.html") if path.is_file())
+
+missing = sorted(str(path) for path in paths if not (destination / path).is_file())
+if missing:
+    raise SystemExit(f"vendored dependency closure is incomplete: {missing}")
+
+files = {
+    str(path): hashlib.sha256((destination / path).read_bytes()).hexdigest()
+    for path in sorted(paths, key=str)
+}
+payload = {
+    "version": 1,
+    "source": "slide-creator",
+    "source_commit": os.environ["SOURCE_COMMIT"],
+    "source_dirty": os.environ["SOURCE_DIRTY"] == "true",
+    "files": files,
+}
+(destination / "vendor-manifest.json").write_text(
+    json.dumps(payload, ensure_ascii=False, indent=2) + "\n",
+    encoding="utf-8",
+)
+PY
+    info "  vendor-manifest.json → dependency closure hashes"
 
     info "slide-creator vendor complete"
 }

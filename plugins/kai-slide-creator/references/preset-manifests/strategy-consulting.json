@@ -1,0 +1,144 @@
+{
+  "version": 1,
+  "preset": "Strategy Consulting",
+  "support_state": "unified_profile_renderer",
+  "renderer_strategy": "unified_profile",
+  "source_reference": "references/strategy-consulting.md",
+  "fonts": [
+    "inherit",
+    "inter",
+    "sans-serif",
+    "system-ui"
+  ],
+  "tokens": {
+    "css_vars": {
+      "--accent": "#000",
+      "--accent-light": "#1a2b4a",
+      "--bg": "#1b3a6b",
+      "--bg-accent": "#2e7d5b",
+      "--bg-card": "#3366a8",
+      "--border": "#6b7a90",
+      "--divider": "#c0392b",
+      "--driver-gap": "#c8d1dc",
+      "--highlight": "#d8dfe8",
+      "--negative": "#eef2f7",
+      "--neutral": "#f0c850",
+      "--positive": "#f7f8fa",
+      "--slide-count": "#fff",
+      "--text": "#ffffff",
+      "--text-muted": "rgba(27,58,107,0.04)"
+    },
+    "colors": [
+      "#000",
+      "#1a2b4a",
+      "#1b3a6b",
+      "#2e7d5b",
+      "#3366a8",
+      "#6b7a90",
+      "#c0392b",
+      "#c8d1dc",
+      "#d8dfe8",
+      "#eef2f7",
+      "#f0c850",
+      "#f7f8fa",
+      "#fff",
+      "#ffffff",
+      "rgba(27,58,107,0.04)"
+    ]
+  },
+  "layout_families": [
+    "consulting_exec",
+    "consulting_matrix",
+    "consulting_split",
+    "consulting_quote",
+    "consulting_close"
+  ],
+  "signature_components": [
+    "profile-slide",
+    "profile-content",
+    "preset-content",
+    "profile-title"
+  ],
+  "required_visible_components": [
+    {
+      "name": "profile-slide",
+      "selectors": [
+        "section.profile-slide"
+      ],
+      "min_count": 1
+    },
+    {
+      "name": "profile-content",
+      "selectors": [
+        ".profile-content"
+      ],
+      "min_count": 1
+    },
+    {
+      "name": "preset-content",
+      "selectors": [
+        ".preset-strategy-consulting-content"
+      ],
+      "min_count": 1
+    },
+    {
+      "name": "profile-title",
+      "selectors": [
+        ".profile-fit-title"
+      ],
+      "min_count": 1
+    }
+  ],
+  "decorative_selectors": [],
+  "non_critical_selectors": [
+    ".slide-num-label",
+    ".progress-bar",
+    "#presenter-view"
+  ],
+  "forbidden_substitutions": [
+    "generic-theme-shell",
+    "marker-only-style-signature",
+    "empty-component-shell"
+  ],
+  "style_fidelity": {
+    "minimum_coverage": 0.85,
+    "minimum_integrity": 1.0,
+    "required_selector_groups": [
+      {
+        "name": "preset-visual-component",
+        "selectors": [
+          ".sc-action-title",
+          ".sc-evidence-card",
+          ".sc-before-after",
+          ".sc-three-things"
+        ],
+        "match": "any",
+        "scope": "document",
+        "weight": 1.0,
+        "minimum_group_score": 1.0,
+        "content_required": true
+      },
+      {
+        "name": "preset-content-spread",
+        "selectors": [
+          ".preset-strategy-consulting-content"
+        ],
+        "match": "any",
+        "scope": "slide",
+        "page_buckets": [
+          "content"
+        ],
+        "weight": 1.0,
+        "minimum_group_score": 0.7,
+        "minimum_bucket_count": 1,
+        "content_required": true
+      }
+    ],
+    "negative_fixtures": [
+      "generic-shell",
+      "marker-only",
+      "single-slide-signature-dump",
+      "full-slide-image"
+    ]
+  }
+}
