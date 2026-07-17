@@ -6,6 +6,7 @@ import tempfile
 from pathlib import Path
 
 import pytest
+from bs4 import BeautifulSoup
 
 # Add server directory to path
 SERVER_DIR = Path(__file__).resolve().parent.parent
@@ -46,6 +47,36 @@ def test_render_slide_valid_brief():
         Path(output_path).unlink(missing_ok=True)
 
 
+def test_render_slide_kingdee_custom_theme():
+    """Vendored renderer should preserve Kingdee layout variety and provenance."""
+    brief = json.loads(load_fixture("valid-brief.json"))
+    brief["style"]["preset"] = "Kingdee"
+
+    result = render_slide(json.dumps(brief, ensure_ascii=False))
+
+    assert result.success is True, result.errors
+    assert 'data-preset="Kingdee"' in result.html
+    assert result.stats["html_bytes"] > 0
+
+    soup = BeautifulSoup(result.html, "html.parser")
+    slides = soup.select("section.slide")
+    layout_classes = {
+        class_name
+        for slide in slides
+        for class_name in slide.get("class", [])
+        if class_name.startswith("layout-")
+    }
+    assert layout_classes == {
+        "layout-title_grid",
+        "layout-contents_index",
+        "layout-pull_quote",
+    }
+    for slide in slides:
+        export_role = slide["data-export-role"]
+        layout_id = "title_grid" if export_role == "title" else export_role
+        assert f"layout-{layout_id}" in slide.get("class", [])
+
+
 def test_render_slide_invalid_brief():
     """Invalid BRIEF should return error."""
     brief_json = load_fixture("invalid-brief-missing-required.json")
@@ -81,15 +112,16 @@ def test_render_slide_contains_required_markers():
     brief_json = load_fixture("valid-brief.json")
     result = render_slide(brief_json)
 
-    if result.success:
-        required_markers = [
-            'data-generator="kai-slide-creator"',
-            'data-generator-version="',
-            'data-render-path="',
-            'data-brief-hash="',
-        ]
-        for marker in required_markers:
-            assert marker in result.html, f"Missing marker: {marker}"
+    assert result.success is True, result.errors
+    required_markers = [
+        'data-generator="kai-slide-creator"',
+        'data-generator-version="3.2.1"',
+        'By kai-slide-creator v3.2.1 · Data Story',
+        'data-render-path="',
+        'data-brief-hash="',
+    ]
+    for marker in required_markers:
+        assert marker in result.html, f"Missing marker: {marker}"
 
 
 def test_render_slide_stats_populated():

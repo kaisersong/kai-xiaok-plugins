@@ -1,6 +1,6 @@
 {
   "name": "kai-slide-creator",
-  "version": "3.2.0",
+  "version": "3.2.1",
   "interface": {
     "display_name": "幻灯片生成器",
     "short_description": "高质量 HTML 幻灯片，零依赖单文件，22 种风格预设",

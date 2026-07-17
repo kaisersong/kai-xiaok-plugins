@@ -1,7 +1,7 @@
 ---
 name: slide-planner
 description: Use when user wants to create HTML slide decks, presentations, pitch decks, or reports. Triggers on slide/presentation/deck/ppt/pitch/路演/幻灯片/演示.
-version: 3.2.0
+version: 3.2.1
 user-invocable: true
 metadata: {"emoji":"🎞","os":["darwin","linux","windows"]}
 ---

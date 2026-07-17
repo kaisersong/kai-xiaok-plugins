@@ -7,6 +7,7 @@ end-to-end workflow, preset listing, and schema retrieval.
 import ast
 import hashlib
 import json
+import re
 import sys
 import tempfile
 from pathlib import Path
@@ -76,6 +77,24 @@ class TestPluginJsonValid:
 
     def test_name_is_kai_slide_creator(self, plugin_json: dict):
         assert plugin_json["name"] == "kai-slide-creator"
+
+    def test_release_version_is_consistent_and_current(self, plugin_json: dict):
+        registry = json.loads((PLUGIN_ROOT.parents[1] / "registry.json").read_text(encoding="utf-8"))
+        registry_entry = next(
+            plugin for plugin in registry["plugins"] if plugin["name"] == "kai-slide-creator"
+        )
+        skill_text = (PLUGIN_ROOT / "skills" / "slide-planner" / "SKILL.md").read_text(
+            encoding="utf-8"
+        )
+        skill_version = re.search(r"^version:\s*([^\s]+)\s*$", skill_text, re.MULTILINE)
+
+        assert skill_version is not None
+        versions = {
+            "plugin.json": plugin_json["version"],
+            "registry.json": registry_entry["version"],
+            "skills/slide-planner/SKILL.md": skill_version.group(1),
+        }
+        assert set(versions.values()) == {"3.2.1"}, versions
 
     def test_skills_list_non_empty(self, plugin_json: dict):
         assert isinstance(plugin_json["skills"], list)

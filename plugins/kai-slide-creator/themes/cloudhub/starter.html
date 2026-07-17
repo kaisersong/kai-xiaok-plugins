@@ -729,12 +729,14 @@
         // Slide visibility observer
         const slides = document.querySelectorAll('.slide');
         const dots = document.querySelectorAll('.nav-dot');
+        let currentIndex = 0;
 
         const observer = new IntersectionObserver((entries) => {
             entries.forEach(entry => {
                 if (entry.isIntersecting) {
                     entry.target.classList.add('visible');
                     const index = Array.from(slides).indexOf(entry.target);
+                    currentIndex = index;
                     dots.forEach((dot, i) => {
                         dot.classList.toggle('active', i === index);
                     });
@@ -754,7 +756,6 @@
 
         // Keyboard navigation
         document.addEventListener('keydown', (e) => {
-            const currentIndex = Array.from(slides).findIndex(s => s.classList.contains('visible'));
             if (e.key === 'ArrowRight' || e.key === 'ArrowDown' || e.key === ' ') {
                 e.preventDefault();
                 const next = Math.min(currentIndex + 1, slides.length - 1);
