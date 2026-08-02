@@ -1,0 +1,187 @@
+{
+  "version": 2,
+  "repo": "kaisersong/kai-xiaok-plugins",
+  "plugins": [
+    {
+      "name": "cua-computer-use",
+      "display_name": "Computer Use for Mac",
+      "description": "通过 CUA Driver 在 macOS 上观察和操作本机应用",
+      "category": "local-automation",
+      "keywords": [
+        "computer-use",
+        "cua",
+        "macos",
+        "automation",
+        "mcp",
+        "本机自动化",
+        "电脑操作"
+      ],
+      "repo": "kaisersong/kai-xiaok-plugins",
+      "path": "plugins/cua-computer-use",
+      "version": "0.2.0",
+      "platforms": [
+        "darwin"
+      ],
+      "source": {
+        "commit": "642c2b3b12652baea44185eced35414efc3473eb",
+        "treeSha256": "96690b21d91ac4c3bae82c82b8d55379a1bf7f45e2b7ba07ef3f7b27dbdeb59f"
+      },
+      "install": {
+        "steps": [
+          {
+            "kind": "external",
+            "serverNames": [
+              "cua-driver"
+            ],
+            "reason": "CUA Driver is installed through Xiaok Settings on macOS",
+            "cwd": "."
+          }
+        ]
+      }
+    },
+    {
+      "name": "kai-infinity-canvas",
+      "display_name": "无限画布",
+      "description": "tldraw 驱动的本地无限画布，支持手绘、标注、图片插入",
+      "category": "visual-collaboration",
+      "keywords": [
+        "canvas",
+        "tldraw",
+        "whiteboard",
+        "画布",
+        "白板",
+        "手绘"
+      ],
+      "repo": "kaisersong/kai-xiaok-plugins",
+      "path": "plugins/kai-infinity-canvas",
+      "version": "0.2.0",
+      "platforms": [
+        "darwin",
+        "linux",
+        "win32"
+      ],
+      "source": {
+        "commit": "642c2b3b12652baea44185eced35414efc3473eb",
+        "treeSha256": "abcfab7cd80615a4c856c61482469d214c8cc6aa6c216d6671590cd427f7450c"
+      },
+      "install": {
+        "steps": [
+          {
+            "kind": "npm_ci",
+            "cwd": "."
+          },
+          {
+            "kind": "npm_run",
+            "cwd": ".",
+            "script": "build"
+          }
+        ]
+      }
+    },
+    {
+      "name": "kai-meeting-assistant",
+      "display_name": "会议助手",
+      "description": "Xiaok Desktop AI 录音的本地 Whisper 转写回退与会议纪要总结能力",
+      "category": "productivity",
+      "keywords": [
+        "meeting",
+        "recording",
+        "transcription",
+        "whisper",
+        "minutes",
+        "会议",
+        "录音",
+        "转写",
+        "纪要"
+      ],
+      "repo": "kaisersong/kai-xiaok-plugins",
+      "path": "plugins/kai-meeting-assistant",
+      "version": "0.1.0",
+      "source": {
+        "commit": "642c2b3b12652baea44185eced35414efc3473eb",
+        "treeSha256": "882adb8ab4137aa68f7cc83552f74affa3f11a391d904737b4d75fa6f2ca319d"
+      },
+      "install": {
+        "steps": [
+          {
+            "kind": "external",
+            "serverNames": [
+              "meeting-transcriber"
+            ],
+            "reason": "requirements.txt has no hash pins; install Whisper dependencies manually",
+            "cwd": "."
+          }
+        ]
+      }
+    },
+    {
+      "name": "kai-report-creator",
+      "display_name": "报告生成器",
+      "description": "高质量 HTML 报告，8 套主题，零依赖单文件",
+      "category": "content-creation",
+      "keywords": [
+        "report",
+        "html",
+        "chart",
+        "kpi",
+        "dashboard",
+        "报告",
+        "看板"
+      ],
+      "repo": "kaisersong/kai-xiaok-plugins",
+      "path": "plugins/kai-report-creator",
+      "version": "2.1.0",
+      "source": {
+        "commit": "642c2b3b12652baea44185eced35414efc3473eb",
+        "treeSha256": "85e488af46b3b0d1dfbb609fcf3b8b0f7cbf8a78a99d5724bb7b462735117ef8"
+      },
+      "install": {
+        "steps": [
+          {
+            "kind": "npm_ci",
+            "cwd": "mcp-servers/report-renderer"
+          },
+          {
+            "kind": "npm_run",
+            "cwd": "mcp-servers/report-renderer",
+            "script": "build"
+          }
+        ]
+      }
+    },
+    {
+      "name": "kai-slide-creator",
+      "display_name": "幻灯片生成器",
+      "description": "高质量 HTML 幻灯片，22 种风格预设，零依赖单文件",
+      "category": "content-creation",
+      "keywords": [
+        "slide",
+        "presentation",
+        "ppt",
+        "deck",
+        "html",
+        "幻灯片",
+        "演示"
+      ],
+      "repo": "kaisersong/kai-xiaok-plugins",
+      "path": "plugins/kai-slide-creator",
+      "version": "3.2.1",
+      "source": {
+        "commit": "642c2b3b12652baea44185eced35414efc3473eb",
+        "treeSha256": "195bfb642dd65c39d4b6fd08d64f3ef0a77f617d603c223eedb9b17e79c7d4bf"
+      },
+      "install": {
+        "steps": [
+          {
+            "kind": "external",
+            "serverNames": [
+              "slide-renderer"
+            ],
+            "reason": "requirements.txt has no hash pins; install the Python runtime manually",
+            "cwd": "."
+          }
+        ]
+      }
+    }
+  ]
+}
