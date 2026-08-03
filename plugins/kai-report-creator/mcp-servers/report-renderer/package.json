@@ -1,6 +1,6 @@
 {
   "name": "@xiaok/report-renderer",
-  "version": "2.1.0",
+  "version": "2.1.1",
   "type": "module",
   "main": "dist/server.js",
   "scripts": {
@@ -13,8 +13,9 @@
     "eval": "tsx ../../evals/run-evals.ts"
   },
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.29.0",
-    "js-yaml": "^4.1.0"
+    "@modelcontextprotocol/server": "2.0.0",
+    "js-yaml": "^4.1.0",
+    "zod": "^4.3.6"
   },
   "devDependencies": {
     "@types/js-yaml": "^4.0.9",

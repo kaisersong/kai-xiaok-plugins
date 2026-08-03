@@ -1,6 +1,6 @@
 {
   "name": "kai-slide-creator",
-  "version": "3.2.1",
+  "version": "3.2.2",
   "interface": {
     "display_name": "幻灯片生成器",
     "short_description": "高质量 HTML 幻灯片，零依赖单文件，22 种风格预设",
@@ -14,7 +14,9 @@
       "name": "slide-renderer",
       "type": "stdio",
       "command": "python3",
-      "args": ["mcp-servers/slide-renderer/server.py"]
+      "args": ["mcp-servers/slide-renderer/server.py"],
+      "protocol": { "mode": "modern", "version": "2026-07-28" },
+      "timeout": { "startup": 30000, "call": 30000 }
     }
   ],
   "hooks": [

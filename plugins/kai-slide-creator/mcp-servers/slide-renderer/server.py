@@ -7,7 +7,7 @@ import sys
 from pathlib import Path
 from typing import Any
 
-from mcp.server import FastMCP
+from mcp.server.mcpserver import MCPServer
 from pydantic import BaseModel, Field
 
 # Resolve plugin root (parent of mcp-servers/slide-renderer/)
@@ -30,7 +30,7 @@ from low_context import (
 from preset_support import preset_support_tier, load_preset_support_matrix
 
 
-mcp = FastMCP(
+mcp = MCPServer(
     name="slide-renderer",
     instructions="Deterministic HTML rendering from BRIEF.json IR",
 )

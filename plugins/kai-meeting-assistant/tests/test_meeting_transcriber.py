@@ -2,12 +2,13 @@ import sys
 import types
 from pathlib import Path
 import ssl
+import inspect
 
 PLUGIN_ROOT = Path(__file__).resolve().parent.parent
 SERVER_DIR = PLUGIN_ROOT / "mcp-servers" / "meeting-transcriber"
 sys.path.insert(0, str(SERVER_DIR))
 
-from server import transcribe_file
+from server import run_mcp_server, transcribe_file
 
 
 class FakeModel:
@@ -98,3 +99,31 @@ def test_requirements_include_mcp_server_runtime():
 
     assert "mcp==1.27.1" in requirements
     assert "pydantic==2.13.4" in requirements
+
+
+def test_mcp_tool_annotations_are_resolvable(monkeypatch):
+    instances = []
+
+    class FakeFastMCP:
+        def __init__(self, **_kwargs):
+            self.ran = False
+            instances.append(self)
+
+        def tool(self):
+            def register(function):
+                inspect.signature(function, eval_str=True)
+                return function
+
+            return register
+
+        def run(self):
+            self.ran = True
+
+    fake_server_module = types.ModuleType("mcp.server")
+    fake_server_module.FastMCP = FakeFastMCP
+    monkeypatch.setitem(sys.modules, "mcp.server", fake_server_module)
+
+    run_mcp_server()
+
+    assert len(instances) == 1
+    assert instances[0].ran is True

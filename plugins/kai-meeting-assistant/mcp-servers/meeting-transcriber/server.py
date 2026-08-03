@@ -165,6 +165,8 @@ def run_mcp_server() -> None:
         text: str = Field(description="Full transcript")
         segments: list[Segment] = Field(description="Timestamped transcript segments")
 
+    globals()["TranscriptionResult"] = TranscriptionResult
+
     @mcp.tool()
     def transcribe_file_tool(
         audio_path: str,

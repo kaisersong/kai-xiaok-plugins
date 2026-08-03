@@ -1,6 +1,6 @@
 {
   "name": "cua-computer-use",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Computer Use for Mac powered by CUA Driver",
   "platforms": ["darwin"],
   "interface": {
@@ -17,6 +17,8 @@
       "type": "stdio",
       "command": "~/.local/bin/cua-driver",
       "args": ["mcp"],
+      "protocol": { "mode": "legacy" },
+      "timeout": { "startup": 30000, "call": 30000 },
       "requiresUserActivation": true
     }
   ],

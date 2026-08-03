@@ -15,19 +15,21 @@
 
 ## 当前发布基线
 
-- Xiaok Desktop v1.4.23 继续把本仓库作为随包插件来源；release workflow 会从默认分支 checkout 本仓库，因此打 tag 前必须保证插件 README、registry 和 renderer bundle 构建说明已经同步。
-- `kai-slide-creator` 当前注册版本为 `3.2.1`，用于 HTML 演示文稿/幻灯片生成。
-- `kai-report-creator` 当前注册版本为 `2.1.0`，用于 HTML 报告、看板、KPI 摘要和可导出交互报告。
+- Xiaok Desktop v1.4.26 继续把本仓库作为随包插件来源；release workflow 会从默认分支 checkout 本仓库，因此必须先推送插件 README、registry、renderer bundle 和目标平台 wheels，再触发 Desktop 构建。
+- `kai-slide-creator` 当前注册版本为 `3.2.2`，使用 Python MCP 2.0 `MCPServer` 和 modern MCP `2026-07-28` stdio 合同。
+- `kai-report-creator` 当前注册版本为 `2.1.1`，使用 `@modelcontextprotocol/server` 2.0、Zod 4 tool schema 和 modern MCP `2026-07-28` stdio 合同。
 - `kai-infinity-canvas` 当前注册版本为 `0.1.0`，用于本地无限画布、图片标注、MCP 图片插入和 PNG/SVG 导出。
 - `kai-meeting-assistant` 首次以 `0.1.0` 注册，提供本地 Whisper 文件转写回退、TLS 证书链兼容和会议纪要总结 skill；Sherpa-ONNX、阿里云、火山引擎、实时录音和标点恢复仍由 Xiaok Desktop 核心负责。
-- xiaok Desktop release workflow 会 checkout 本仓库，构建 `kai-report-creator` 的 `report-renderer` bundle，并下载 slide renderer 所需 Python wheels 后再打包 macOS/Windows 安装器。
-- v1.4.23 Desktop 打包会同时带上 `kai-infinity-canvas/scripts/**` 和 `kai-meeting-assistant` 的 plugin manifest、skill、Python server 与 requirements；安装包内可启动画布，并可在 Whisper 回退路径中找到转写 server。
+- `cua-computer-use` 当前注册版本为 `0.2.1`，显式声明 `legacy` protocol 和 startup/call timeout。CuaDriver 尚未迁移 modern MCP，因此 Desktop bundled stdio plugin 继续使用 legacy adapter 是兼容性边界，不是遗漏。
+- `kai-meeting-assistant` 继续使用现有 MCP 1.x runtime；本轮只修复嵌套 Pydantic 返回类型在 tool annotation 解析时不可见的问题，避免 server initialize 阶段直接关闭连接。
+- xiaok Desktop release workflow 会 checkout 本仓库，构建 `kai-report-creator` 的 `report-renderer` bundle，并使用本仓已提交的 macOS/Windows wheels 打包目标平台安装器。
+- v1.4.26 Desktop 打包继续带上 `kai-infinity-canvas/scripts/**` 和 `kai-meeting-assistant` 的 plugin manifest、skill、Python server 与 requirements；安装包内可启动画布，并可在 Whisper 回退路径中找到转写 server。
 - `kai-infinity-canvas` 预览层继续缩小并降低 tldraw watermark 透明度，避免水印遮挡画布内容。
 - 插件边界保持不变：LLM 生成结构化 IR，MCP renderer 负责确定性 HTML/CSS/JS 输出、shell 结构和质量门禁。
-- Xiaok v1.4.23 的自动化/Loop 输出预览、知识库产物预览、Canvas 产物编辑、Canvas PDF 渲染和 AI 录音保存的知识来源会复用同一套 artifact/knowledge 预览边界：插件负责提供确定性工具与可检查产物，Xiaok 负责把结果挂到任务、loop、项目、知识库或编辑界面。
+- Xiaok v1.4.26 的自动化/Loop 输出预览、知识库产物预览、Canvas 产物编辑、Canvas PDF 渲染和 AI 录音保存的知识来源会复用同一套 artifact/knowledge 预览边界：插件负责提供确定性工具与可检查产物，Xiaok 负责把结果挂到任务、Loop、项目、知识库或编辑界面。
 - Xiaok Desktop 的麦克风采集、Sherpa-ONNX 实时转写、阿里云/火山引擎在线 ASR、标点恢复、模型管理和录音悬浮窗属于 Desktop 核心能力；`kai-meeting-assistant` 只提供本地 Whisper 回退和总结 skill，不保存用户 ASR key。
-- v2.1.0 report renderer 加强正文 Markdown 解析：章节内标题、列表、表格、inline strong/em/code 会转成正式 HTML，避免报告预览出现未渲染 Markdown 或不可读转义字符。
-- Xiaok v1.4.23 的插件 baseline 为 slide `3.2.1`、report `2.1.0`、canvas `0.1.0`、meeting assistant `0.1.0`。
+- v2.1.1 report renderer 保留正文 Markdown 质量门禁，同时迁移到 MCP 2.0 server API；v3.2.2 slide renderer 迁移到 Python MCP 2.0，并保持 BRIEF.json 确定性渲染合同。
+- Xiaok v1.4.26 的插件 baseline 为 slide `3.2.2`、report `2.1.1`、canvas `0.1.0`、meeting assistant `0.1.0`、Computer Use `0.2.1`。
 
 ## 快速安装
 

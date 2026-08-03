@@ -1,6 +1,6 @@
 {
   "name": "kai-report-creator",
-  "version": "2.1.0",
+  "version": "2.1.1",
   "interface": {
     "display_name": "报告生成器",
     "short_description": "高质量 HTML 报告，零依赖单文件，8 套主题",
@@ -14,7 +14,9 @@
       "name": "report-renderer",
       "type": "stdio",
       "command": "node",
-      "args": ["mcp-servers/report-renderer/dist/server.bundle.js"]
+      "args": ["mcp-servers/report-renderer/dist/server.bundle.js"],
+      "protocol": { "mode": "modern", "version": "2026-07-28" },
+      "timeout": { "startup": 30000, "call": 30000 }
     }
   ],
   "hooks": [
