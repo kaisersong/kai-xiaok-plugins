@@ -77,8 +77,12 @@ export function parseFrontmatter(source) {
         fm.charts = str(parsed['charts'], 'cdn');
     if (parsed['toc'] !== undefined)
         fm.toc = Boolean(parsed['toc']);
-    if (parsed['animations'] !== undefined)
-        fm.animations = Boolean(parsed['animations']);
+    if (parsed['animations'] !== undefined) {
+        const anim = parsed['animations'];
+        fm.animations = typeof anim === 'boolean' ? anim : str(anim, '');
+    }
+    if (parsed['cover'])
+        fm.cover = str(parsed['cover'], '');
     if (parsed['abstract'])
         fm.abstract = str(parsed['abstract'], '');
     if (parsed['author'])
@@ -102,6 +106,16 @@ export function parseFrontmatter(source) {
         warnings.push('Missing required field: title');
     if (!VALID_THEMES.includes(fm.theme) && !fm.theme.startsWith('custom-')) {
         warnings.push(`Unknown theme "${fm.theme}", expected one of: ${VALID_THEMES.join(', ')}`);
+    }
+    const ANIMATED_MODES = ['scrollytelling', 'iridescence'];
+    if (typeof fm.animations === 'string' && !ANIMATED_MODES.includes(fm.animations)) {
+        warnings.push(`Invalid animations "${fm.animations}", expected boolean or one of: ${ANIMATED_MODES.join(', ')} — treated as true`);
+    }
+    if (fm.cover && fm.cover !== 'hero') {
+        warnings.push(`Invalid cover "${fm.cover}", expected "hero" — ignored`);
+    }
+    if (fm.cover === 'hero' && typeof fm.animations === 'string' && ANIMATED_MODES.includes(fm.animations)) {
+        warnings.push(`contract_conflict: cover: hero cannot combine with animations: ${fm.animations}`);
     }
     if (!VALID_REPORT_CLASSES.includes(fm.report_class)) {
         warnings.push(`Invalid report_class "${fm.report_class}", expected: ${VALID_REPORT_CLASSES.join(', ')}`);

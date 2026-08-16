@@ -11,7 +11,8 @@ export interface IRFrontmatter {
     must_avoid?: string[];
     charts?: 'cdn' | 'bundle';
     toc?: boolean;
-    animations?: boolean;
+    animations?: boolean | string;
+    cover?: string;
     abstract?: string;
     author?: string;
     poster_title?: string;

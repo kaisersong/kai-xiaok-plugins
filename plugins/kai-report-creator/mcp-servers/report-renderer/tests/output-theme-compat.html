@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="zh" data-template="kai-report-creator" data-version="2.0.0" data-theme="forest-editorial">
+<html lang="zh" data-template="kai-report-creator" data-version="2.0.0" data-theme="forest-editorial" data-cover="hero">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -363,6 +363,127 @@ body.edit-mode [contenteditable]:focus { outline: 2px solid var(--primary); }
 .diagram-wrapper, .report-image { border-radius: var(--radius); }
 .chart-container { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 1rem; box-shadow: var(--fe-shadow-sm); }
 
+
+/* === Report Cover (hero) === */
+.main-with-toc { display: flex; flex-direction: column; }
+.report-cover {
+  position: relative;
+  width: 100%;
+  min-height: 100svh;
+  overflow: hidden;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  padding: clamp(2rem, 6vw, 5rem) clamp(1.25rem, 6vw, 6.5rem) 0;
+  background: var(--cover-bg, #14181b);
+  color: var(--cover-ink, #f4f6f5);
+}
+.cover-eyebrow {
+  margin: 0 0 clamp(1rem, 3vw, 2.2rem);
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: .74rem;
+  font-weight: 700;
+  letter-spacing: .18em;
+  text-transform: uppercase;
+  color: var(--cover-accent, var(--accent, #d97706));
+}
+.cover-title-row { display: flex; align-items: flex-start; gap: 1.5rem; }
+.cover-title-row h1 {
+  flex: 1;
+  margin: 0;
+  font-size: clamp(2.4rem, 6.4vw, 5.2rem);
+  font-weight: 900;
+  line-height: 1.02;
+  letter-spacing: -.03em;
+  color: var(--cover-ink, #f4f6f5);
+  background: none;
+  box-shadow: none;
+  padding: 0;
+}
+.cover-title-row h1::before { content: none; }
+.cover-highlight { color: var(--cover-highlight, var(--accent, #d97706)); }
+.cover-title-row .card-mode-btn {
+  flex-shrink: 0;
+  background: rgba(255,255,255,.12);
+  border: 1px solid rgba(255,255,255,.3);
+  color: var(--cover-ink, #f4f6f5);
+}
+.cover-title-row .card-mode-btn:hover {
+  background: rgba(255,255,255,.22);
+  border-color: rgba(255,255,255,.45);
+}
+.cover-lead {
+  max-width: 44rem;
+  margin: clamp(1rem, 2.5vw, 1.8rem) 0 0;
+  font-size: clamp(.95rem, 1.2vw, 1.12rem);
+  line-height: 1.75;
+  color: var(--cover-ink, #f4f6f5);
+}
+.cover-meta {
+  margin: .9rem 0 0;
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: .78rem;
+  letter-spacing: .04em;
+  color: var(--cover-ink, #f4f6f5);
+  opacity: .72;
+}
+.cover-chips { display: flex; flex-wrap: wrap; gap: .6rem; margin-top: clamp(1.2rem, 3vw, 2rem); }
+.cover-chip {
+  padding: .45rem .95rem;
+  border: 1px solid rgba(255,255,255,.28);
+  border-radius: 999px;
+  font-size: .8rem;
+  color: var(--cover-ink, #f4f6f5);
+}
+.cover-cards {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1px;
+  margin-top: auto;
+  margin-bottom: 0;
+  background: rgba(255,255,255,.18);
+  position: relative;
+  z-index: 1;
+}
+.cover-card { padding: 1.35rem 1.5rem 1.6rem; background: var(--cover-bg, #14181b); }
+.cover-card[data-accent] { background: var(--cover-accent, var(--accent, #d97706)); }
+.cover-card-label {
+  margin: 0 0 .7rem;
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: .66rem;
+  font-weight: 700;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  opacity: .78;
+}
+.cover-card-title { margin: 0 0 .5rem; font-size: 1.02rem; font-weight: 800; line-height: 1.35; }
+.cover-card-text { margin: 0; font-size: .84rem; line-height: 1.6; opacity: .88; }
+.cover-watermark {
+  position: absolute;
+  left: 0; right: 0; bottom: -.18em;
+  font-size: clamp(4rem, 13vw, 11rem);
+  font-weight: 900;
+  letter-spacing: -.04em;
+  white-space: nowrap;
+  text-align: center;
+  color: var(--cover-ink, #f4f6f5);
+  opacity: .06;
+  pointer-events: none;
+  user-select: none;
+}
+
+@media (max-width: 768px) {
+  .report-cover { min-height: auto; padding-bottom: 2rem; }
+  .cover-title-row { flex-direction: column; gap: .9rem; }
+  .cover-cards { grid-template-columns: 1fr; margin-top: 2rem; }
+  .cover-watermark { display: none; }
+}
+
+@media print {
+  .report-cover { min-height: auto; break-after: page; }
+  .cover-watermark { display: none !important; }
+}
+
     </style>
 </head>
 <body>
@@ -378,7 +499,6 @@ body.edit-mode [contenteditable]:focus { outline: 2px solid var(--primary); }
       <button class="export-item" id="export-im-share">💬 IM 长图</button>
     </div>
     <button class="export-btn" id="export-btn" title="Export">↓ 导出</button>
-
     <button class="toc-toggle" id="toc-toggle-btn" aria-label="目录" aria-expanded="false">☰</button>
     <nav class="toc-sidebar" id="toc-sidebar" aria-label="报告目录">
       <h4>目录</h4>
@@ -387,21 +507,22 @@ body.edit-mode [contenteditable]:focus { outline: 2px solid var(--primary); }
       <a href="#section-技术架构演进" data-section="技术架构演进">技术架构演进</a>
       <a href="#section-下一步计划" data-section="下一步计划">下一步计划</a>
     </nav>
-
     <div class="main-with-toc">
-      <div class="report-wrapper">
-        <div class="title-row">
+      <section class="report-cover" id="report-cover">
+        <div class="cover-title-row">
           <h1>AI 技术趋势报告</h1>
-          <button id="card-mode-btn" class="card-mode-btn" title="摘要卡片">⊞ 摘要卡</button>
+          <button class="card-mode-btn" id="card-mode-btn" title="摘要卡片">⊞ 摘要卡</button>
         </div>
-        <p class="report-meta">2026-05-01</p>
+        <p class="cover-meta">2026-05-01</p>
+      </section>
+      <div class="report-wrapper">
+
 
         <div class="sc-overlay" id="sc-overlay">
           <div class="sc-card" id="sc-card">
             <button class="sc-close" id="sc-close" aria-label="Close">✕</button>
           </div>
         </div>
-
         <section data-section="核心指标" data-summary="items:" id="section-核心指标">
           <h2 id="section-核心指标">核心指标</h2>
     <div class="kpi-grid" style="grid-template-columns:repeat(3,1fr)">
@@ -425,10 +546,10 @@ body.edit-mode [contenteditable]:focus { outline: 2px solid var(--primary); }
         <section data-section="增长趋势" data-summary="labels: [1月, 2月, 3月, 4月, 5月]" id="section-增长趋势">
           <h2 id="section-增长趋势">增长趋势</h2>
           <div data-component="chart" data-type="line" class="chart-container fade-in-up">
-            <div id="chart-99-msvdu0u1" style="height:300px"></div>
+            <div id="chart-99-msveytq0" style="height:300px"></div>
             <script>
               (function(){
-                var chart = echarts.init(document.getElementById('chart-99-msvdu0u1'));
+                var chart = echarts.init(document.getElementById('chart-99-msveytq0'));
                 chart.setOption({
   "tooltip": {
     "trigger": "axis"

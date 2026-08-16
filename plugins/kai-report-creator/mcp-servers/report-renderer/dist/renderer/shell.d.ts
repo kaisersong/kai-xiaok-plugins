@@ -21,5 +21,7 @@ export interface ShellOptions {
     abstract: string;
     version: string;
     frontmatter?: IRFrontmatter;
+    /** Pre-rendered cover section; presence implies data-cover="hero" + no in-wrapper title block. */
+    coverHtml?: string;
 }
 export declare function buildHtmlShell(opts: ShellOptions): string;

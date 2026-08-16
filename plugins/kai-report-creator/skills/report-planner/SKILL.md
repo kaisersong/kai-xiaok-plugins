@@ -1,7 +1,7 @@
 ---
 name: kai-report-creator
 description: Use when the user wants to CREATE or GENERATE a report, business summary, data dashboard, or research doc. Handles Chinese and English. The model generates IR (.report.md) and delegates rendering to the MCP report-renderer server.
-version: 2.1.0
+version: 2.2.0
 user-invocable: true
 metadata: {"openclaw": {"emoji": "📊"}}
 ---
@@ -52,12 +52,34 @@ report_class: mixed|kpi-dashboard|narrative|comparison
 audience: Target Audience
 toc: true
 animations: true
+cover: hero
 abstract: One-line summary for machine reading
 author: Author Name
 poster_title: Short Poster Title
 poster_subtitle: One-line subtitle for summary card
 poster_note: Brief note for summary card left panel
 ---
+
+:::cover
+eyebrow: 2026 Q2 BUSINESS REVIEW
+chips:
+  - 增长
+  - 提效
+  - 风控
+  - 组织
+cards:
+  - label: GROWTH
+    title: 营收增长 18%
+    text: 核心业务线连续三个季度加速
+    accent: true
+  - label: EFFICIENCY
+    title: 人效提升 12%
+    text: 流程自动化覆盖率过半
+  - label: RISK
+    title: 风险敞口收窄
+    text: 逾期率降至 1.4%
+watermark: REVIEW
+:::
 
 ## Section Heading
 
@@ -67,6 +89,30 @@ body content
 
 Prose text between blocks.
 ```
+
+## Cover (`cover: hero`)
+
+全屏封面：headline/meta/摘要卡按钮移到 100vh 封面上，`<html>` 标记 `data-cover="hero"`，`#report-cover` 是 `.report-wrapper` 的前置兄弟节点，全文唯一 `<h1>` 在封面内。
+
+- `title` 中可用 `[[…]]` 标记一个强调短语，渲染为高亮 `span`（如 `title: 季度经营[[复盘]]报告`）。标记只允许出现在 `title`，绝不能泄漏到最终 HTML。
+- `:::cover` fence 至多一个，位于所有 `##` 之前。字段：`eyebrow`（一行 ≤60 字符）、`chips`（≤4 个，超出自动丢弃）、`cards`（必须 3 张或没有；`accent: true` 至多第一张生效，否则整条卡片带丢弃）、`watermark`（底部大字水印）。
+- `theme: forest-editorial` 隐含封面，无关闭开关。
+- `cover: hero` 与 `animations: scrollytelling|iridescence` 组合是 `contract_conflict`，渲染器会拒绝并回退为纯 animated 页。
+
+## Animated Render Mode
+
+frontmatter 写 `animations: scrollytelling`（暗色 GSAP 滚动叙事）或 `animations: iridescence`（浅色 WebGL 虹彩、零 CDN）时，进入**动效网页渲染模式**——不再是标准报告 shell。用户说「动效网页 / 滚动叙事 / scrollytelling / 动画长页 / 虹彩」也路由到这里。**此模式下仍然禁止手写 HTML**——只需在 IR frontmatter 设置 `animations` 值，MCP 渲染器会生成整个动效单文件页面。
+
+与标准 shell 的差异（渲染器自动处理）：
+
+- 无 TOC 侧栏、摘要卡按钮、编辑模式、导出菜单；标准 shell L2 ID 检查不适用。
+- 图表由渲染器手工构建（SVG + GSAP / CSS 条形），不用 ECharts。支持 `bar`/`line`/`pie`；其他 chart 类型以数据表格诚实呈现，绝不虚构视觉。
+- scrollytelling 恰好加载 3 个带 SRI 的固定 CDN（GSAP + ScrollTrigger + CountUp）；iridescence 零外部请求。
+- 输出契约（渲染器内置断言）：`<html data-render-mode="animated" data-animation="<mode>" data-theme="<mode>">`（data-theme 必须等于 data-animation）、chrome ID `play-btn` / `nav-sections`、`report-summary` KPI 契约、键盘翻页 + 演示模式。
+- `theme:` 字段被忽略；品牌色用 `theme_overrides.primary_color`（默认极光紫 `#5842EA`）。
+- `cover:` 与 animated 模式互斥（contract_conflict）。
+
+浏览器 QA 仍需人工走一遍：滚动一遍确认每张图只触发一次、KPI 不卡 0、`→/↓/PageDown/Space` 翻节、F5 进出演示模式。
 
 ## Available Components (9 types)
 
@@ -162,3 +208,6 @@ The following tools are available as `mcp__report-renderer__<tool_name>`:
 | "报告规划" / "plan report" | compose IR → `mcp__report-renderer__validate_ir` (no render) |
 | "换主题" / "change theme" | `mcp__report-renderer__render_report` with `theme` param |
 | "检查报告" / "validate" | `mcp__report-renderer__validate_ir` |
+| "带封面的报告" / 封面 / hero cover | frontmatter 加 `cover: hero` + `:::cover` fence → render |
+| "动效网页" / "滚动叙事" / scrollytelling / 动画长页 | frontmatter `animations: scrollytelling` → render |
+| "虹彩" / iridescence / WebGL 动效 | frontmatter `animations: iridescence` → render |

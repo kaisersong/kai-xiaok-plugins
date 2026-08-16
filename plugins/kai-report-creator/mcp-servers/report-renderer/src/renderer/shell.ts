@@ -1,6 +1,7 @@
 import { escHtml, escHtmlText } from './escape.js';
 import type { IRFrontmatter } from '../parser/frontmatter.js';
 import { buildReportJsonLd, escapeJsonLdForHtml } from './jsonld.js';
+import { COVER_CSS } from './cover.js';
 
 export interface ShellOptions {
   title: string;
@@ -20,6 +21,8 @@ export interface ShellOptions {
   abstract: string;
   version: string;
   frontmatter?: IRFrontmatter;
+  /** Pre-rendered cover section; presence implies data-cover="hero" + no in-wrapper title block. */
+  coverHtml?: string;
 }
 
 export function buildHtmlShell(opts: ShellOptions): string {
@@ -60,8 +63,21 @@ export function buildHtmlShell(opts: ShellOptions): string {
   });
   const jsonLdTag = `    <script type="application/ld+json">${escapeJsonLdForHtml(jsonLd)}</script>`;
 
+  const hasCover = typeof opts.coverHtml === 'string' && opts.coverHtml.length > 0;
+  const coverAttr = hasCover ? ' data-cover="hero"' : '';
+  const cssOut = hasCover ? `${opts.css}\n${COVER_CSS}` : opts.css;
+
+  // With a cover, the headline/meta/card button move onto the cover; the
+  // in-wrapper title block is not rendered (it would print the headline twice).
+  const titleBlock = hasCover
+    ? ''
+    : `        <div class="title-row">
+          <h1>${escHtmlText(opts.title)}</h1>
+          <button id="card-mode-btn" class="card-mode-btn" title="${cardBtnTitle}">${cardBtnText}</button>
+        </div>${metaLine}`;
+
   return `<!DOCTYPE html>
-<html lang="${opts.lang}" data-template="kai-report-creator" data-version="${opts.version}" data-theme="${opts.theme}">
+<html lang="${opts.lang}" data-template="kai-report-creator" data-version="${opts.version}" data-theme="${opts.theme}"${coverAttr}>
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -70,7 +86,7 @@ export function buildHtmlShell(opts: ShellOptions): string {
     <title>${escHtml(opts.title)}</title>
 ${jsonLdTag}
 ${echartsScript}${highlightjsLink}    <style>
-${opts.css}
+${cssOut}
     </style>
 </head>
 <body>
@@ -79,17 +95,11 @@ ${opts.css}
     <div class="edit-hotzone" id="edit-hotzone"></div>
     <button class="edit-toggle" id="edit-toggle" title="Edit mode (E)">✏ Edit</button>
 
-${exportMenu}
-${tocToggle}${tocSidebar}
-    <div class="main-with-toc">
-      <div class="report-wrapper">
-        <div class="title-row">
-          <h1>${escHtmlText(opts.title)}</h1>
-          <button id="card-mode-btn" class="card-mode-btn" title="${cardBtnTitle}">${cardBtnText}</button>
-        </div>${metaLine}
+${exportMenu}${tocToggle}${tocSidebar}    <div class="main-with-toc">
+${hasCover ? `${opts.coverHtml}\n` : ''}      <div class="report-wrapper">
+${titleBlock}
 
-${summaryCard}
-${opts.bodyContent}
+${summaryCard}${opts.bodyContent}
 
         <footer class="report-footer">kai-report-creator v${opts.version} ${opts.theme}</footer>
       </div>

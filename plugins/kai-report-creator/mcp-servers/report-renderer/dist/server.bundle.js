@@ -31862,8 +31862,12 @@ function parseFrontmatter(source) {
     fm.charts = str2(parsed["charts"], "cdn");
   if (parsed["toc"] !== void 0)
     fm.toc = Boolean(parsed["toc"]);
-  if (parsed["animations"] !== void 0)
-    fm.animations = Boolean(parsed["animations"]);
+  if (parsed["animations"] !== void 0) {
+    const anim = parsed["animations"];
+    fm.animations = typeof anim === "boolean" ? anim : str2(anim, "");
+  }
+  if (parsed["cover"])
+    fm.cover = str2(parsed["cover"], "");
   if (parsed["abstract"])
     fm.abstract = str2(parsed["abstract"], "");
   if (parsed["author"])
@@ -31886,6 +31890,16 @@ function parseFrontmatter(source) {
     warnings.push("Missing required field: title");
   if (!VALID_THEMES.includes(fm.theme) && !fm.theme.startsWith("custom-")) {
     warnings.push(`Unknown theme "${fm.theme}", expected one of: ${VALID_THEMES.join(", ")}`);
+  }
+  const ANIMATED_MODES = ["scrollytelling", "iridescence"];
+  if (typeof fm.animations === "string" && !ANIMATED_MODES.includes(fm.animations)) {
+    warnings.push(`Invalid animations "${fm.animations}", expected boolean or one of: ${ANIMATED_MODES.join(", ")} \u2014 treated as true`);
+  }
+  if (fm.cover && fm.cover !== "hero") {
+    warnings.push(`Invalid cover "${fm.cover}", expected "hero" \u2014 ignored`);
+  }
+  if (fm.cover === "hero" && typeof fm.animations === "string" && ANIMATED_MODES.includes(fm.animations)) {
+    warnings.push(`contract_conflict: cover: hero cannot combine with animations: ${fm.animations}`);
   }
   if (!VALID_REPORT_CLASSES.includes(fm.report_class)) {
     warnings.push(`Invalid report_class "${fm.report_class}", expected: ${VALID_REPORT_CLASSES.join(", ")}`);
@@ -31936,8 +31950,25 @@ function parseDocument(source) {
     frontmatterWarnings: warnings,
     sections,
     blocks,
-    rawBody
+    rawBody,
+    coverBody: extractCoverBody(rawBody)
   };
+}
+function extractCoverBody(body) {
+  const lines = body.split("\n");
+  for (let i = 0; i < lines.length; i++) {
+    const open = lines[i].match(/^:::\s*cover\s*$/);
+    if (!open)
+      continue;
+    const bodyLines = [];
+    let j = i + 1;
+    while (j < lines.length && lines[j].trim() !== ":::") {
+      bodyLines.push(lines[j]);
+      j++;
+    }
+    return bodyLines.join("\n");
+  }
+  return null;
 }
 function parseBlocks(body, lineOffset = 0) {
   const lines = body.split("\n");
@@ -32470,6 +32501,24 @@ function handleListThemes() {
         description: "\u7F16\u8F91/\u65B0\u95FB\u98CE\u683C\uFF0C\u5370\u5237\u6392\u7248\u611F",
         palette: "light",
         recommended_for: ["newsletter", "editorial", "weekly digest"]
+      },
+      {
+        name: "regular-lumen",
+        description: "\u5468\u671F\u6027\u6C47\u62A5\u98CE\u683C\uFF0C\u6696\u5149\u7F16\u8F91\u90E8\u6392\u7248",
+        palette: "light",
+        recommended_for: ["weekly report", "daily report", "monthly report", "work progress"]
+      },
+      {
+        name: "fangsong",
+        description: "\u4E2D\u6587\u4EFF\u5B8B\u516C\u6587\u4F53\uFF0C\u6B63\u5F0F\u884C\u6587\u98CE\u683C",
+        palette: "light",
+        recommended_for: ["official notice", "formal document", "policy", "\u516C\u6587"]
+      },
+      {
+        name: "forest-editorial",
+        description: "\u7C73\u7EFF\u7EB8\u611F\u7F16\u8F91\u98CE\uFF0C\u6DF1\u6797\u7EFF\u951A\u533A + \u91D1\u6A59\u70B9\u7F00\uFF0C\u5927\u5706\u89D2\u7EB8\u9762\u5361\u7247",
+        palette: "light",
+        recommended_for: ["retrospective", "work summary", "proposal", "\u590D\u76D8/\u603B\u7ED3/\u63D0\u6848"]
       }
     ]
   };
@@ -32523,7 +32572,8 @@ var BUILTIN_THEMES = [
   "data-story",
   "newspaper",
   "regular-lumen",
-  "fangsong"
+  "fangsong",
+  "forest-editorial"
 ];
 var cache = /* @__PURE__ */ new Map();
 function loadTheme(themeName) {
@@ -32626,6 +32676,240 @@ function escapeJsonLdForHtml(jsonString) {
   return String(jsonString).replace(/<\/(script)/gi, "<\\/$1").replace(/\u2028/g, "\\u2028").replace(/\u2029/g, "\\u2029");
 }
 
+// dist/renderer/cover.js
+function isAnimatedMode(animations) {
+  return typeof animations === "string" && (animations === "scrollytelling" || animations === "iridescence");
+}
+function shouldRenderCover(coverFlag, effectiveTheme) {
+  return coverFlag === "hero" || effectiveTheme === "forest-editorial";
+}
+function splitAccentPhrase(title) {
+  const plain = title.replace(/\[\[([^\[\]]+)\]\]/g, "$1");
+  if (plain === title)
+    return { plain: title, html: escHtmlText(title) };
+  const html = escHtmlText(title).replace(/\[\[([^\[\]]+)\]\]/g, '<span class="cover-highlight">$1</span>');
+  return { plain, html };
+}
+function parseCoverBody(body) {
+  const trimmed = body.trim();
+  if (!trimmed)
+    return {};
+  try {
+    const parsed = jsYaml.load(trimmed);
+    return parsed ?? {};
+  } catch {
+    return {};
+  }
+}
+function normaliseCover(spec, warnings) {
+  const cover = { eyebrow: null, watermark: null, chips: [], cards: [] };
+  if (!spec)
+    return cover;
+  if (spec.eyebrow) {
+    let eyebrow = String(spec.eyebrow).split("\n")[0].trim();
+    if (eyebrow.length > 60) {
+      warnings.push(`cover eyebrow trimmed to 60 characters`);
+      eyebrow = eyebrow.slice(0, 60);
+    }
+    if (eyebrow)
+      cover.eyebrow = eyebrow;
+  }
+  if (Array.isArray(spec.chips)) {
+    cover.chips = spec.chips.map((c) => String(c).trim()).filter(Boolean).slice(0, 4);
+  }
+  if (spec.watermark) {
+    cover.watermark = String(spec.watermark).split("\n")[0].trim() || null;
+  }
+  if (Array.isArray(spec.cards)) {
+    const cards = spec.cards.filter((c) => !!c && typeof c === "object").map((c) => ({
+      label: String(c["label"] ?? "").trim(),
+      title: String(c["title"] ?? "").trim(),
+      text: String(c["text"] ?? "").trim(),
+      accent: c["accent"] === true
+    }));
+    if (cards.length !== 0 && cards.length !== 3) {
+      warnings.push(`cover cards must be 3 or none (got ${cards.length}); card strip dropped`);
+    } else if (cards.length === 3) {
+      let accentSeen = false;
+      cover.cards = cards.map((c) => {
+        const accent = c.accent && !accentSeen;
+        if (c.accent && accentSeen)
+          warnings.push("cover card accent kept only on the first card");
+        if (accent)
+          accentSeen = true;
+        return { ...c, accent };
+      });
+    }
+  }
+  return cover;
+}
+function renderCoverSection(input) {
+  const zh = input.lang === "zh";
+  const cardBtnText = zh ? "\u229E \u6458\u8981\u5361" : "\u229E Summary";
+  const cardBtnTitle = zh ? "\u6458\u8981\u5361\u7247" : "Summary Card";
+  const parts = [];
+  parts.push('      <section class="report-cover" id="report-cover">');
+  if (input.cover.eyebrow) {
+    parts.push(`        <p class="cover-eyebrow">${escHtmlText(input.cover.eyebrow)}</p>`);
+  }
+  parts.push('        <div class="cover-title-row">');
+  parts.push(`          <h1>${input.titleHtml}</h1>`);
+  parts.push(`          <button class="card-mode-btn" id="card-mode-btn" title="${escHtml(cardBtnTitle)}">${escHtml(cardBtnText)}</button>`);
+  parts.push("        </div>");
+  if (input.abstract) {
+    parts.push(`        <p class="cover-lead">${escHtmlText(input.abstract)}</p>`);
+  }
+  const metaBits = [input.author, input.date].filter(Boolean).map(escHtml).join(" \xB7 ");
+  if (metaBits) {
+    parts.push(`        <p class="cover-meta">${metaBits}</p>`);
+  }
+  if (input.cover.chips.length > 0) {
+    parts.push('        <div class="cover-chips">');
+    for (const chip of input.cover.chips) {
+      parts.push(`          <span class="cover-chip">${escHtmlText(chip)}</span>`);
+    }
+    parts.push("        </div>");
+  }
+  if (input.cover.cards.length === 3) {
+    parts.push('        <div class="cover-cards">');
+    for (const card of input.cover.cards) {
+      const accentAttr = card.accent ? ' data-accent="true"' : "";
+      parts.push(`          <div class="cover-card"${accentAttr}>`);
+      parts.push(`            <p class="cover-card-label">${escHtmlText(card.label)}</p>`);
+      parts.push(`            <p class="cover-card-title">${escHtmlText(card.title)}</p>`);
+      parts.push(`            <p class="cover-card-text">${escHtmlText(card.text)}</p>`);
+      parts.push("          </div>");
+    }
+    parts.push("        </div>");
+  }
+  if (input.cover.watermark) {
+    parts.push(`        <div class="cover-watermark" aria-hidden="true">${escHtmlText(input.cover.watermark)}</div>`);
+  }
+  parts.push("      </section>");
+  return parts.join("\n");
+}
+var COVER_CSS = `
+/* === Report Cover (hero) === */
+.main-with-toc { display: flex; flex-direction: column; }
+.report-cover {
+  position: relative;
+  width: 100%;
+  min-height: 100svh;
+  overflow: hidden;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  padding: clamp(2rem, 6vw, 5rem) clamp(1.25rem, 6vw, 6.5rem) 0;
+  background: var(--cover-bg, #14181b);
+  color: var(--cover-ink, #f4f6f5);
+}
+.cover-eyebrow {
+  margin: 0 0 clamp(1rem, 3vw, 2.2rem);
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: .74rem;
+  font-weight: 700;
+  letter-spacing: .18em;
+  text-transform: uppercase;
+  color: var(--cover-accent, var(--accent, #d97706));
+}
+.cover-title-row { display: flex; align-items: flex-start; gap: 1.5rem; }
+.cover-title-row h1 {
+  flex: 1;
+  margin: 0;
+  font-size: clamp(2.4rem, 6.4vw, 5.2rem);
+  font-weight: 900;
+  line-height: 1.02;
+  letter-spacing: -.03em;
+  color: var(--cover-ink, #f4f6f5);
+  background: none;
+  box-shadow: none;
+  padding: 0;
+}
+.cover-title-row h1::before { content: none; }
+.cover-highlight { color: var(--cover-highlight, var(--accent, #d97706)); }
+.cover-title-row .card-mode-btn {
+  flex-shrink: 0;
+  background: rgba(255,255,255,.12);
+  border: 1px solid rgba(255,255,255,.3);
+  color: var(--cover-ink, #f4f6f5);
+}
+.cover-title-row .card-mode-btn:hover {
+  background: rgba(255,255,255,.22);
+  border-color: rgba(255,255,255,.45);
+}
+.cover-lead {
+  max-width: 44rem;
+  margin: clamp(1rem, 2.5vw, 1.8rem) 0 0;
+  font-size: clamp(.95rem, 1.2vw, 1.12rem);
+  line-height: 1.75;
+  color: var(--cover-ink, #f4f6f5);
+}
+.cover-meta {
+  margin: .9rem 0 0;
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: .78rem;
+  letter-spacing: .04em;
+  color: var(--cover-ink, #f4f6f5);
+  opacity: .72;
+}
+.cover-chips { display: flex; flex-wrap: wrap; gap: .6rem; margin-top: clamp(1.2rem, 3vw, 2rem); }
+.cover-chip {
+  padding: .45rem .95rem;
+  border: 1px solid rgba(255,255,255,.28);
+  border-radius: 999px;
+  font-size: .8rem;
+  color: var(--cover-ink, #f4f6f5);
+}
+.cover-cards {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1px;
+  margin-top: auto;
+  margin-bottom: 0;
+  background: rgba(255,255,255,.18);
+  position: relative;
+  z-index: 1;
+}
+.cover-card { padding: 1.35rem 1.5rem 1.6rem; background: var(--cover-bg, #14181b); }
+.cover-card[data-accent] { background: var(--cover-accent, var(--accent, #d97706)); }
+.cover-card-label {
+  margin: 0 0 .7rem;
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: .66rem;
+  font-weight: 700;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  opacity: .78;
+}
+.cover-card-title { margin: 0 0 .5rem; font-size: 1.02rem; font-weight: 800; line-height: 1.35; }
+.cover-card-text { margin: 0; font-size: .84rem; line-height: 1.6; opacity: .88; }
+.cover-watermark {
+  position: absolute;
+  left: 0; right: 0; bottom: -.18em;
+  font-size: clamp(4rem, 13vw, 11rem);
+  font-weight: 900;
+  letter-spacing: -.04em;
+  white-space: nowrap;
+  text-align: center;
+  color: var(--cover-ink, #f4f6f5);
+  opacity: .06;
+  pointer-events: none;
+  user-select: none;
+}
+
+@media (max-width: 768px) {
+  .report-cover { min-height: auto; padding-bottom: 2rem; }
+  .cover-title-row { flex-direction: column; gap: .9rem; }
+  .cover-cards { grid-template-columns: 1fr; margin-top: 2rem; }
+  .cover-watermark { display: none; }
+}
+
+@media print {
+  .report-cover { min-height: auto; break-after: page; }
+  .cover-watermark { display: none !important; }
+}
+`;
+
 // dist/renderer/shell.js
 function buildHtmlShell(opts) {
   const zh = opts.lang === "zh";
@@ -32655,8 +32939,16 @@ function buildHtmlShell(opts) {
     rendererVersion: opts.version
   });
   const jsonLdTag = `    <script type="application/ld+json">${escapeJsonLdForHtml(jsonLd)}</script>`;
+  const hasCover = typeof opts.coverHtml === "string" && opts.coverHtml.length > 0;
+  const coverAttr = hasCover ? ' data-cover="hero"' : "";
+  const cssOut = hasCover ? `${opts.css}
+${COVER_CSS}` : opts.css;
+  const titleBlock = hasCover ? "" : `        <div class="title-row">
+          <h1>${escHtmlText(opts.title)}</h1>
+          <button id="card-mode-btn" class="card-mode-btn" title="${cardBtnTitle}">${cardBtnText}</button>
+        </div>${metaLine}`;
   return `<!DOCTYPE html>
-<html lang="${opts.lang}" data-template="kai-report-creator" data-version="${opts.version}" data-theme="${opts.theme}">
+<html lang="${opts.lang}" data-template="kai-report-creator" data-version="${opts.version}" data-theme="${opts.theme}"${coverAttr}>
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -32665,7 +32957,7 @@ function buildHtmlShell(opts) {
     <title>${escHtml(opts.title)}</title>
 ${jsonLdTag}
 ${echartsScript}${highlightjsLink}    <style>
-${opts.css}
+${cssOut}
     </style>
 </head>
 <body>
@@ -32674,17 +32966,12 @@ ${opts.css}
     <div class="edit-hotzone" id="edit-hotzone"></div>
     <button class="edit-toggle" id="edit-toggle" title="Edit mode (E)">\u270F Edit</button>
 
-${exportMenu}
-${tocToggle}${tocSidebar}
-    <div class="main-with-toc">
-      <div class="report-wrapper">
-        <div class="title-row">
-          <h1>${escHtmlText(opts.title)}</h1>
-          <button id="card-mode-btn" class="card-mode-btn" title="${cardBtnTitle}">${cardBtnText}</button>
-        </div>${metaLine}
+${exportMenu}${tocToggle}${tocSidebar}    <div class="main-with-toc">
+${hasCover ? `${opts.coverHtml}
+` : ""}      <div class="report-wrapper">
+${titleBlock}
 
-${summaryCard}
-${opts.bodyContent}
+${summaryCard}${opts.bodyContent}
 
         <footer class="report-footer">kai-report-creator v${opts.version} ${opts.theme}</footer>
       </div>
@@ -33035,6 +33322,1033 @@ function buildSummaryCardScript() {
     })();
     </script>`;
 }
+
+// dist/renderer/animated/common.js
+function parseChartSeries(body) {
+  const out = { labels: [], datasets: [] };
+  let current = null;
+  for (const raw of body.trim().split("\n")) {
+    const line = raw.trim();
+    const labels = line.match(/^labels:\s*\[(.+)\]$/);
+    if (labels) {
+      out.labels = labels[1].split(",").map((s) => s.trim().replace(/^['"]|['"]$/g, ""));
+      continue;
+    }
+    if (/^datasets:/.test(line))
+      continue;
+    const name = line.match(/^-?\s*name:\s*(.+)$/);
+    if (name && !current) {
+      current = { name: name[1].trim().replace(/^['"]|['"]$/g, ""), data: [] };
+      continue;
+    }
+    if (current) {
+      const data = line.match(/^(-?\s*)?data:\s*\[(.+)\]$/);
+      if (data) {
+        current.data = data[2].split(",").map((s) => parseFloat(s.trim()));
+        out.datasets.push(current);
+        current = null;
+      }
+    }
+  }
+  return out;
+}
+function extractKpis(doc) {
+  const kpis = [];
+  for (const block of doc.blocks) {
+    if (block.tag !== "kpi")
+      continue;
+    const lines = block.body.split("\n");
+    let current = null;
+    for (const line of lines) {
+      const t = line.trim();
+      if (t.startsWith("- label:") || t.startsWith("-label:")) {
+        if (current && current.label)
+          kpis.push({ label: current.label, value: current.value ?? "", trend: current.trend ?? "" });
+        const m = t.match(/label:\s*(.+)/);
+        current = { label: m ? m[1].trim().replace(/^['"]|['"]$/g, "") : "" };
+      } else if (current) {
+        if (t.startsWith("value:")) {
+          const m = t.match(/value:\s*(.+)/);
+          if (m)
+            current.value = m[1].trim().replace(/^['"]|['"]$/g, "");
+        }
+        if (t.startsWith("trend:")) {
+          const m = t.match(/trend:\s*(.+)/);
+          if (m)
+            current.trend = m[1].trim().replace(/^['"]|['"]$/g, "");
+        }
+      }
+    }
+    if (current && current.label)
+      kpis.push({ label: current.label, value: current.value ?? "", trend: current.trend ?? "" });
+  }
+  return kpis.slice(0, 6);
+}
+var MONO_STACK = `'JetBrains Mono',Menlo,'Microsoft YaHei','PingFang SC',monospace`;
+var SANS_STACK = `'Microsoft YaHei','PingFang SC',sans-serif`;
+var SERIF_CJK_STACK = `'Microsoft YaHei','PingFang SC',serif`;
+var CHROME_JS = `    <script>
+    (function(){
+      var secs=[].slice.call(document.querySelectorAll('section[data-sec]'));
+      if(!secs.length) return;
+      var navSec=0;
+
+      function goSec(i){
+        navSec=Math.max(0,Math.min(secs.length-1,i));
+        secs[navSec].scrollIntoView({behavior:'smooth'});
+      }
+      function syncNav(i){
+        navSec=i;
+        var dots=document.querySelectorAll('#nav-sections a');
+        for(var k=0;k<dots.length;k++) dots[k].classList.toggle('active',k===i);
+      }
+
+      document.addEventListener('keydown',function(e){
+        var tag=(document.activeElement&&document.activeElement.tagName)||'';
+        if(tag==='INPUT'||tag==='TEXTAREA') return;
+        if(e.key==='ArrowRight'||e.key==='ArrowDown'||e.key==='PageDown'||e.key===' '){ e.preventDefault(); goSec(navSec+1); }
+        if(e.key==='ArrowLeft'||e.key==='ArrowUp'||e.key==='PageUp'){ e.preventDefault(); goSec(navSec-1); }
+        if(e.key==='Home'){ e.preventDefault(); goSec(0); }
+        if(e.key==='End'){ e.preventDefault(); goSec(secs.length-1); }
+        if(e.key==='F5'&&!e.metaKey&&!e.ctrlKey){ e.preventDefault(); togglePlay(); }
+        if(e.key==='Escape'&&document.body.classList.contains('playing')) exitPlay();
+      });
+
+      var playBtn=document.getElementById('play-btn');
+      var hint=document.querySelector('.scroll-hint');
+      var wheelLock=0;
+      function enterPlay(){
+        document.body.classList.add('playing');
+        if(playBtn) playBtn.textContent='||';
+        if(hint) hint.classList.add('hidden');
+        if(document.documentElement.requestFullscreen) document.documentElement.requestFullscreen();
+      }
+      function exitPlay(){
+        document.body.classList.remove('playing');
+        if(playBtn) playBtn.textContent='\u25B6';
+        if(hint) hint.classList.remove('hidden');
+        if(document.fullscreenElement&&document.exitFullscreen) document.exitFullscreen();
+      }
+      function togglePlay(){ document.body.classList.contains('playing')?exitPlay():enterPlay(); }
+      if(playBtn) playBtn.addEventListener('click',togglePlay);
+      document.addEventListener('fullscreenchange',function(){ if(!document.fullscreenElement) exitPlay(); if(window.__onViewportChange) window.__onViewportChange(); });
+
+      document.addEventListener('wheel',function(e){
+        if(!document.body.classList.contains('playing')) return;
+        e.preventDefault();
+        var now=Date.now();
+        if(now-wheelLock<700) return;
+        wheelLock=now;
+        goSec(navSec+(e.deltaY>0?1:-1));
+      },{passive:false});
+
+      document.addEventListener('click',function(e){
+        if(!document.body.classList.contains('playing')) return;
+        if(e.target.closest('#play-btn')||e.target.closest('#nav-sections')) return;
+        goSec(e.clientX<window.innerWidth*.25?navSec-1:navSec+1);
+      });
+
+      window.__animatedNav={goSec:goSec,syncNav:syncNav,secs:secs};
+    })();
+    </script>`;
+function sectionItems(section) {
+  const items = [];
+  const queue = [...section.blocks];
+  const lines = section.content.split("\n");
+  let inBlock = false;
+  let skip = false;
+  let prose = [];
+  const flush = () => {
+    if (prose.length) {
+      const t = prose.join(" ").trim();
+      if (t)
+        items.push({ kind: "prose", text: t });
+      prose = [];
+    }
+  };
+  for (const raw of lines) {
+    const line = raw.trim();
+    if (skip) {
+      if (line === ":::")
+        skip = false;
+      continue;
+    }
+    if (/^#{1,6}\s/.test(line)) {
+      flush();
+      continue;
+    }
+    const open = line.match(/^:::\s*(\w+)\b/);
+    if (open) {
+      flush();
+      if (["cover", "toc", "section"].includes(open[1])) {
+        skip = open[1] === "toc";
+        continue;
+      }
+      inBlock = true;
+      continue;
+    }
+    if (line === ":::") {
+      inBlock = false;
+      const block = queue.shift();
+      if (block)
+        items.push({ kind: block.tag, block });
+      continue;
+    }
+    if (inBlock)
+      continue;
+    if (!line) {
+      flush();
+      continue;
+    }
+    prose.push(line);
+  }
+  flush();
+  return items;
+}
+function heroCopy(doc) {
+  return {
+    title: doc.frontmatter.poster_title?.trim() || doc.frontmatter.title || "Report",
+    sub: doc.frontmatter.abstract ?? ""
+  };
+}
+var PLACEHOLDER_RE2 = /\[(?:INSERT VALUE|数据待填写)\]/;
+function hasRealNumber(value) {
+  return /\d/.test(value) && !PLACEHOLDER_RE2.test(value);
+}
+function validateSummaryKpis(html) {
+  const findings = [];
+  const summaryMatch = html.match(/<script\b[^>]*id="report-summary"[^>]*>\s*([\s\S]*?)\s*<\/script>/);
+  if (!summaryMatch) {
+    findings.push("missing report-summary JSON");
+    return findings;
+  }
+  try {
+    const summary = JSON.parse(summaryMatch[1] ?? "{}");
+    if (Array.isArray(summary.kpis)) {
+      for (const item of summary.kpis) {
+        const value = String(item?.value ?? "").trim();
+        if (value && !hasRealNumber(value))
+          findings.push(`invalid summary KPI value "${value}"`);
+      }
+      if (summary.kpis.length === 0)
+        findings.push("report-summary has no KPIs \u2014 every page KPI must appear here");
+    } else {
+      findings.push("report-summary missing kpis array");
+    }
+  } catch {
+    findings.push("invalid report-summary JSON");
+  }
+  return findings;
+}
+var SCROLLYTELLING_SCRIPTS = [
+  { src: "https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js", integrity: "sha512-7eHRwcbYkK4d9g/6tD/mhkf++eoTHwpNM9woBxtPUBWm67zeAfFC+HrdoE2GanKeocly/VxeLvIqwvCdk7qScg==" },
+  { src: "https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js", integrity: "sha512-onMTRKJBKz8M1TnqqDuGBlowlH0ohFzMXYRNebz+yOcc5TQr/zAKsthzhuv0hiyUKEiQEQXEynnXCvNTOk50dg==" },
+  { src: "https://cdnjs.cloudflare.com/ajax/libs/countup.js/2.8.0/countUp.umd.min.js", integrity: "sha512-kUIpdMjMlkYUVQgR3wVXJtmuwoD+G69Zt9JBa2rPH4C/+VPlAsQWKcqCv0SpJ8AnezBjfuM2JDjnc58Ee8Filw==" }
+];
+function isAllowedScriptSrc(src) {
+  return SCROLLYTELLING_SCRIPTS.some((s) => s.src === src);
+}
+function validateAnimatedOutput(html, mode, version2) {
+  const findings = [];
+  const htmlTag = /<html\b[^>]*>/.exec(html)?.[0] ?? "";
+  if (!htmlTag.includes('data-template="kai-report-creator"'))
+    findings.push("missing data-template on <html>");
+  if (!htmlTag.includes(`data-version="${version2}"`))
+    findings.push("missing data-version on <html>");
+  if (!htmlTag.includes('data-render-mode="animated"'))
+    findings.push('missing data-render-mode="animated" on <html>');
+  if (!htmlTag.includes(`data-animation="${mode}"`))
+    findings.push(`missing data-animation="${mode}" on <html>`);
+  if (!htmlTag.includes(`data-theme="${mode}"`))
+    findings.push("data-theme must equal data-animation (got mismatch)");
+  const markup = html.replace(/<script\b[\s\S]*?<\/script>/gi, "").replace(/<style\b[\s\S]*?<\/style>/gi, "");
+  if (!markup.includes('id="play-btn"'))
+    findings.push('chrome contract: missing id="play-btn"');
+  if (!markup.includes('id="nav-sections"'))
+    findings.push('chrome contract: missing id="nav-sections"');
+  const srcs = [...html.matchAll(/<script\b[^>]*\bsrc="([^"]+)"/g)].map((m) => m[1]);
+  if (mode === "scrollytelling") {
+    if (srcs.length !== SCROLLYTELLING_SCRIPTS.length) {
+      findings.push(`pinned-script allow-list: expected exactly ${SCROLLYTELLING_SCRIPTS.length} CDN scripts, found ${srcs.length}`);
+    }
+    for (const s of SCROLLYTELLING_SCRIPTS) {
+      const tag = `<script src="${s.src}"`;
+      if (!html.includes(tag))
+        findings.push(`pinned-script allow-list: missing ${s.src}`);
+      else if (!html.slice(html.indexOf(tag)).slice(0, 400).includes(`integrity="${s.integrity}"`))
+        findings.push(`pinned-script allow-list: ${s.src} missing SRI integrity`);
+    }
+    for (const src of srcs) {
+      if (!isAllowedScriptSrc(src))
+        findings.push(`pinned-script allow-list: unexpected external script ${src}`);
+    }
+  } else {
+    if (srcs.length > 0)
+      findings.push(`iridescence is zero-CDN: found external script(s) ${srcs.join(", ")}`);
+    const links = [...html.matchAll(/<link\b[^>]*href="([^"]+)"/g)].map((m) => m[1]);
+    const externalLinks = links.filter((h) => /^https?:\/\//.test(h));
+    if (externalLinks.length > 0)
+      findings.push(`iridescence is zero-CDN: found external stylesheet(s) ${externalLinks.join(", ")}`);
+    if (!html.includes("canvas.style.background"))
+      findings.push('shader fallback missing: getContext("webgl") failure must assign canvas.style.background');
+    if (!html.includes("IntersectionObserver"))
+      findings.push("hero canvas must pause via IntersectionObserver when scrolled out");
+  }
+  const kpiFindings = validateSummaryKpis(html);
+  return { chromeFindings: findings, kpiFindings };
+}
+
+// dist/renderer/animated/scrollytelling.js
+function buildScrollytelling(ctx) {
+  const { doc, lang, version: version2, irHash, primaryColor } = ctx;
+  const hero = heroCopy(doc);
+  const kpis = extractKpis(doc);
+  const sections = buildSections(ctx);
+  const summary = {
+    title: doc.frontmatter.title,
+    theme: "scrollytelling",
+    lang,
+    date: doc.frontmatter.date ?? "",
+    abstract: doc.frontmatter.abstract ?? "",
+    poster_title: doc.frontmatter.poster_title ?? "",
+    poster_subtitle: doc.frontmatter.poster_subtitle ?? "",
+    poster_note: doc.frontmatter.poster_note ?? "",
+    kpis,
+    sections: doc.sections.map((s) => ({ title: s.heading, slug: s.slug }))
+  };
+  const fmForLd = { ...doc.frontmatter, theme: "scrollytelling" };
+  const jsonLd = buildReportJsonLd({ frontmatter: fmForLd, irHash, rendererVersion: version2 });
+  const navDots = sections.map((s, i) => `        <a href="#${s.id}" data-i="${i}" title="${escHtml(s.heading)}"><span></span>${escHtmlText(s.heading)}</a>`).join("\n");
+  const cdnTags = SCROLLYTELLING_SCRIPTS.map((s) => `    <script src="${s.src}" integrity="${s.integrity}" crossorigin="anonymous"></script>`).join("\n");
+  return `<!DOCTYPE html>
+<html lang="${lang}" data-template="kai-report-creator" data-version="${version2}" data-theme="scrollytelling" data-render-mode="animated" data-animation="scrollytelling">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="generator" content="kai-report-creator scrollytelling v${version2}">
+    <meta name="ir-hash" content="${irHash}">
+    <title>${escHtml(doc.frontmatter.title || "Report")}</title>
+    <script type="application/ld+json">${escapeJsonLdForHtml(jsonLd)}</script>
+${cdnTags}
+    <style>
+${SCROLLYTELLING_CSS(primaryColor)}
+    </style>
+</head>
+<body>
+    <script type="application/json" id="report-summary">${JSON.stringify(summary)}</script>
+
+    <div class="progress" id="progress"></div>
+    <div class="brandbar">${escHtmlText(doc.frontmatter.title || "REPORT")}</div>
+    <nav class="navsecs" id="nav-sections" aria-label="Sections">
+${navDots}
+    </nav>
+    <button class="playbtn" id="play-btn" title="Play (F5)">\u25B6</button>
+    <button class="totop" id="totop" title="Back to top">\u2191</button>
+    <div class="curtain" id="curtain"></div>
+    <div class="glow glow-a"></div>
+    <div class="glow glow-b"></div>
+
+    <main>
+${sections.map((s) => s.html).join("\n")}
+    </main>
+
+${CHROME_JS}
+${SCROLLYTELLING_RUNTIME}
+</body>
+</html>`;
+}
+function buildSections(ctx) {
+  const { doc } = ctx;
+  const out = [];
+  const hero = heroCopy(doc);
+  const heroIdx = 0;
+  out.push({
+    id: "s0",
+    heading: hero.title,
+    html: `      <section class="sec hero" id="s0" data-sec data-heading="${escHtml(hero.title)}">
+        <div class="orbits" aria-hidden="true">
+          <svg viewBox="0 0 400 400"><circle class="orbit orbit-a" cx="200" cy="200" r="180"/><circle class="orbit orbit-b" cx="200" cy="200" r="130"/></svg>
+        </div>
+        <p class="kicker">01 / ${escHtmlText((doc.frontmatter.date ?? "").replace(/-/g, "."))}</p>
+        <h1 class="hero-title">${escHtmlText(hero.title)}</h1>
+        ${hero.sub ? `<p class="hero-sub">${escHtmlText(hero.sub)}</p>` : ""}
+        <div class="scroll-hint">SCROLL \u2193</div>
+      </section>`
+  });
+  doc.sections.forEach((section, idx) => {
+    const n = heroIdx + 1 + idx;
+    const id = `s${n}`;
+    const items = sectionItems(section);
+    const inner = [];
+    for (const item of items) {
+      inner.push(renderItem(item, id, ctx));
+    }
+    out.push({
+      id,
+      heading: section.heading,
+      html: `      <section class="sec" id="${id}" data-sec data-heading="${escHtml(section.heading)}">
+        <div class="sec-inner">
+          <p class="kicker">${String(n + 1).padStart(2, "0")} / ${escHtmlText(section.heading.toUpperCase())}</p>
+          <h2>${escHtmlText(section.heading)}</h2>
+${inner.join("\n")}
+        </div>
+      </section>`
+    });
+  });
+  return out;
+}
+function renderItem(item, secId, ctx) {
+  const { block } = item;
+  switch (item.kind) {
+    case "prose":
+      return `          <p class="prose">${escHtmlPreserveInline(item.text ?? "")}</p>`;
+    case "kpi": {
+      const cards = extractKpis({ ...ctx.doc, blocks: [block] }).map((k) => {
+        const m = String(k.value).match(/^([^0-9.-]*)(-?[\d.,]+)(.*)$/);
+        const prefix = m ? m[1] : "";
+        const value = m ? m[2] : String(k.value);
+        const suffix = m ? m[3] : "";
+        return `            <div class="kpi glass">
+              <p class="kpi-label">${escHtmlText(k.label)}</p>
+              <p class="kpi-value" data-prefix="${escHtml(prefix)}" data-value="${escHtml(value)}" data-suffix="${escHtml(suffix)}">${escHtmlText(k.value)}</p>
+              ${k.trend ? `<p class="kpi-trend">${escHtmlText(k.trend)}</p>` : ""}
+            </div>`;
+      }).join("\n");
+      return `          <div class="kpi-grid">
+${cards}
+          </div>`;
+    }
+    case "chart": {
+      const type2 = block.params["type"] ?? "bar";
+      if (["bar", "line", "pie"].includes(type2)) {
+        const data2 = parseChartSeries(block.body);
+        const payload = JSON.stringify({ type: type2, ...data2 });
+        return `          <div class="chart glass" data-chart="${escHtml(payload)}"></div>`;
+      }
+      const data = parseChartSeries(block.body);
+      const head = `<tr><th>${escHtmlText(data.datasets.map((d) => d.name).join(" / ") || "value")}</th>${data.labels.map((l) => `<th>${escHtmlText(l)}</th>`).join("")}</tr>`;
+      const rows = data.datasets.map((d) => `<tr><td class="rowname">${escHtmlText(d.name)}</td>${d.data.map((v) => `<td>${v}</td>`).join("")}</tr>`).join("");
+      return `          <div class="chart-table glass"><table><thead>${head}</thead><tbody>${rows}</tbody></table></div>`;
+    }
+    case "table": {
+      const lines = block.body.trim().split("\n").filter((l) => l.trim());
+      if (lines.length < 2)
+        return "";
+      const cells = (line) => line.split("|").map((c) => c.trim()).filter((c) => c && !/^[-:]+$/.test(c));
+      const head = `<tr>${cells(lines[0]).map((c) => `<th>${escHtmlPreserveInline(c)}</th>`).join("")}</tr>`;
+      const rows = lines.slice(2).map((l) => `<tr>${cells(l).map((c) => `<td>${escHtmlPreserveInline(c)}</td>`).join("")}</tr>`).join("");
+      return `          <div class="glass tablewrap"><table><thead>${head}</thead><tbody>${rows}</tbody></table></div>`;
+    }
+    case "callout":
+      return `          <div class="cel glass"><p class="cel-quote">${escHtmlPreserveInline(block.body.trim())}</p></div>`;
+    case "list": {
+      const items = block.body.trim().split("\n").map((l) => l.replace(/^[-*]\s*/, "").replace(/^\d+\.\s*/, "").trim()).filter(Boolean);
+      return `          <ul class="dolist glass">
+${items.map((i) => `        <li>${escHtmlPreserveInline(i)}</li>`).join("\n")}
+          </ul>`;
+    }
+    case "timeline": {
+      const items = block.body.trim().split("\n").filter((l) => l.trim().startsWith("-")).map((l) => {
+        const m = l.trim().slice(1).trim().match(/^(.+?):\s+(.+)$/);
+        return m ? { date: m[1], content: m[2] } : { date: "", content: l.trim().slice(1).trim() };
+      });
+      return `          <div class="steps">
+${items.map((i) => `        <div class="step glass"><span class="step-date">${escHtmlText(i.date)}</span><span>${escHtmlPreserveInline(i.content)}</span></div>`).join("\n")}
+          </div>`;
+    }
+    case "code":
+      return `          <pre class="glass code">${escHtmlText(block.body.trim())}</pre>`;
+    case "image": {
+      const src = block.params["src"] ?? "";
+      const alt = block.params["alt"] ?? "";
+      const caption = block.params["caption"] ?? block.body.trim();
+      if (!src)
+        return "";
+      return `          <figure class="fig"><img src="${escHtml(src)}" alt="${escHtml(alt)}">${caption ? `<figcaption>${escHtmlText(caption)}</figcaption>` : ""}</figure>`;
+    }
+    default:
+      return "";
+  }
+}
+function SCROLLYTELLING_CSS(primary) {
+  return `
+:root{
+  --brand:${primary};
+  --bright:color-mix(in srgb,var(--brand) 60%,#c9bbff);
+  --high:color-mix(in srgb,var(--brand) 30%,#fff);
+  --complement:#00B3A6;
+  --ink:#eef1ee;
+  --ink-dim:rgba(238,241,238,.68);
+  --mono:${MONO_STACK};
+  --sans:${SANS_STACK};
+  --serif:${SERIF_CJK_STACK};
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:auto}
+body{background:linear-gradient(160deg,#030604,#0b0d0b 60%,#030604);color:var(--ink);font-family:var(--sans);overflow-x:hidden}
+.glow{position:fixed;width:60vmax;height:60vmax;border-radius:50%;pointer-events:none;z-index:0}
+.glow-a{top:-20vmax;left:-20vmax;background:radial-gradient(circle,var(--brand) 0%,transparent 60%);opacity:.05}
+.glow-b{bottom:-20vmax;right:-20vmax;background:radial-gradient(circle,var(--complement) 0%,transparent 60%);opacity:.04}
+.progress{position:fixed;top:0;left:0;width:100%;height:2px;background:#fff;transform-origin:0 50%;transform:scaleX(0);z-index:60}
+.brandbar{position:fixed;top:14px;left:50%;transform:translateX(-50%);z-index:50;font-family:var(--mono);font-size:.62rem;letter-spacing:.24em;text-transform:uppercase;color:var(--ink-dim);background:rgba(10,13,11,.55);backdrop-filter:blur(20px);border:1px solid rgba(255,255,255,.1);border-radius:999px;padding:.45rem 1.1rem;white-space:nowrap;max-width:70vw;overflow:hidden;text-overflow:ellipsis}
+.navsecs{position:fixed;right:18px;top:50%;transform:translateY(-50%);z-index:50;display:flex;flex-direction:column;gap:12px;align-items:flex-end}
+.navsecs a{display:flex;align-items:center;gap:8px;text-decoration:none;color:var(--ink-dim);font-family:var(--mono);font-size:.6rem;letter-spacing:.14em;opacity:.75}
+.navsecs a span{width:8px;height:8px;border-radius:50%;background:rgba(255,255,255,.28);transition:all .25s}
+.navsecs a.active span{background:var(--high);box-shadow:0 0 12px var(--bright)}
+.navsecs a:not(:hover){font-size:0;gap:0}
+.navsecs a:hover{opacity:1}
+.playbtn{position:fixed;right:18px;bottom:18px;z-index:50;width:46px;height:46px;border-radius:50%;border:1px solid rgba(255,255,255,.18);background:rgba(10,13,11,.55);backdrop-filter:blur(20px);color:var(--ink);font-size:1rem;cursor:pointer}
+.totop{position:fixed;right:18px;bottom:74px;z-index:50;width:46px;height:46px;border-radius:50%;border:1px solid rgba(255,255,255,.18);background:rgba(10,13,11,.55);backdrop-filter:blur(20px);color:var(--ink);font-size:1rem;cursor:pointer;opacity:0;pointer-events:none;transition:opacity .3s}
+.totop.show{opacity:1;pointer-events:auto}
+.curtain{position:fixed;inset:0;background:#fff;opacity:0;pointer-events:none;z-index:70}
+.glass{background:rgba(255,255,255,.04);backdrop-filter:blur(20px);border:1px solid rgba(255,255,255,.12);border-radius:18px}
+.sec{position:relative;min-height:100vh;display:flex;flex-direction:column;justify-content:center;align-items:center;padding:14vh clamp(1.25rem,7vw,7rem) 10vh;z-index:1}
+.sec-inner{width:100%;max-width:64rem}
+.kicker{font-family:var(--mono);font-size:.68rem;font-weight:700;letter-spacing:.22em;text-transform:uppercase;color:var(--bright);margin-bottom:1.1rem}
+.sec h1,.sec h2{font-family:var(--sans);font-weight:900;letter-spacing:-.02em;line-height:1.08;margin-bottom:1.6rem}
+.sec h1{font-size:clamp(2.2rem,6vw,4.4rem)}
+.sec h2{font-size:clamp(1.6rem,3.6vw,2.6rem)}
+.prose{color:var(--ink-dim);line-height:1.85;max-width:44rem;margin-bottom:1.2rem;font-size:1.02rem}
+.kpi-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(10.5rem,1fr));gap:1rem;margin:1.4rem 0}
+.kpi{padding:1.3rem 1.2rem}
+.kpi-label{font-family:var(--mono);font-size:.62rem;letter-spacing:.16em;text-transform:uppercase;color:var(--ink-dim);margin-bottom:.8rem}
+.kpi-value{font-family:var(--sans);font-weight:800;font-variant-numeric:tabular-nums lining-nums;font-size:1.9rem;color:var(--high)}
+.kpi-trend{font-family:var(--mono);font-size:.66rem;color:var(--complement);margin-top:.5rem}
+.chart{margin:1.6rem 0;padding:1.4rem;min-height:12rem}
+.chart svg{width:100%;height:auto;display:block}
+.chart-table,.tablewrap{margin:1.4rem 0;padding:1rem 1.2rem;overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:.86rem}
+th{font-family:var(--mono);font-size:.62rem;letter-spacing:.14em;text-transform:uppercase;color:var(--bright);text-align:left;padding:.55rem .6rem;border-bottom:1px solid rgba(255,255,255,.14)}
+td{padding:.55rem .6rem;color:var(--ink-dim);border-bottom:1px solid rgba(255,255,255,.05);font-variant-numeric:tabular-nums lining-nums}
+td.rowname{color:var(--ink)}
+.cel{margin:1.6rem 0;padding:2rem 2.2rem;border-color:color-mix(in srgb,var(--brand) 35%,transparent)}
+.cel-quote{font-family:var(--serif);font-style:italic;font-size:clamp(1.15rem,2.2vw,1.5rem);line-height:1.7;color:var(--high)}
+.dolist{margin:1.4rem 0;padding:1.4rem 1.8rem}
+.dolist li{list-style:none;color:var(--ink-dim);line-height:1.9;padding-left:1.2rem;position:relative}
+.dolist li::before{content:'';position:absolute;left:0;top:.85em;width:5px;height:5px;border-radius:50%;background:var(--bright)}
+.steps{display:flex;flex-direction:column;gap:.8rem;margin:1.4rem 0}
+.step{display:flex;gap:1rem;align-items:baseline;padding:.95rem 1.2rem}
+.step-date{font-family:var(--mono);font-size:.66rem;letter-spacing:.12em;color:var(--complement);white-space:nowrap}
+.code{margin:1.4rem 0;padding:1.3rem;font-family:var(--mono);font-size:.78rem;line-height:1.7;overflow-x:auto;color:var(--ink-dim)}
+.fig{margin:1.6rem 0;text-align:center}
+.fig img{max-width:100%;border-radius:14px}
+.fig figcaption{font-family:var(--mono);font-size:.64rem;color:var(--ink-dim);margin-top:.7rem}
+.hero .orbits{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;opacity:.4;pointer-events:none}
+.hero .orbits svg{width:min(80vmin,560px);height:auto}
+.orbit{fill:none;stroke:rgba(255,255,255,.16);stroke-dasharray:4 10;stroke-width:1}
+.orbit-a{transform-origin:200px 200px;animation:spin 60s linear infinite}
+.orbit-b{transform-origin:200px 200px;animation:spin 42s linear infinite reverse}
+@keyframes spin{to{transform:rotate(360deg)}}
+.hero-sub{color:var(--ink-dim);max-width:40rem;line-height:1.85;margin:0 auto}
+.scroll-hint{position:absolute;bottom:5vh;left:50%;transform:translateX(-50%);font-family:var(--mono);font-size:.62rem;letter-spacing:.3em;color:var(--ink-dim);animation:bob 1.8s ease-in-out infinite}
+.scroll-hint.hidden{display:none}
+@keyframes bob{0%,100%{transform:translate(-50%,0)}50%{transform:translate(-50%,8px)}}
+@media (max-width:768px){
+  .navsecs{display:none}
+  .kpi-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .sec{padding:12vh 1.25rem 8vh;min-height:auto}
+}
+@media print{.navsecs,.playbtn,.totop,.brandbar,.progress,.scroll-hint,.glow{display:none!important}.sec{min-height:auto;page-break-inside:avoid}}
+`.trim();
+}
+var SCROLLYTELLING_RUNTIME = `    <script>
+    (function(){
+      if(!window.gsap){return;}
+      gsap.registerPlugin(ScrollTrigger);
+
+      gsap.to('#progress',{scaleX:1,ease:'none',scrollTrigger:{start:0,end:'max',scrub:.3}});
+
+      var totop=document.getElementById('totop');
+      window.addEventListener('scroll',function(){ if(totop) totop.classList.toggle('show',window.scrollY>500); },{passive:true});
+      if(totop) totop.addEventListener('click',function(){ window.scrollTo({top:0,behavior:'smooth'}); });
+
+      var secs=[].slice.call(document.querySelectorAll('section[data-sec]'));
+      var curtain=document.getElementById('curtain');
+
+      secs.forEach(function(sec,i){
+        ScrollTrigger.create({
+          trigger:sec,start:'top 50%',end:'bottom 50%',
+          onToggle:function(self){
+            if(self.isActive&&window.__animatedNav) window.__animatedNav.syncNav(i);
+          }
+        });
+        if(i>0){
+          ScrollTrigger.create({
+            trigger:sec,start:'top 65%',once:true,onEnter:function(){
+              if(curtain) gsap.fromTo(curtain,{opacity:0},{opacity:.12,duration:.15,yoyo:true,repeat:1});
+              gsap.fromTo(sec.querySelectorAll('.kicker,h2,.prose'),{y:34,opacity:0},{y:0,opacity:1,duration:.7,stagger:.08,ease:'power3.out'});
+            }
+          });
+        }
+        buildChartsFor(sec);
+      });
+
+      function countUp(el){
+        var target=parseFloat(el.dataset.value);
+        if(isNaN(target)){return;}
+        var prefix=el.dataset.prefix||'',suffix=el.dataset.suffix||'';
+        var isFloat=String(target).indexOf('.')!==-1;
+        var decimals=isFloat?String(target).split('.')[1].length:0;
+        var raw=String(el.dataset.value).replace(/,/g,'');
+        if(window.countUp&&countUp.CountUp){
+          try{ new countUp.CountUp(el,parseFloat(raw),{decimalPlaces:decimals,prefix:prefix,suffix:suffix,duration:1.6}); return; }catch(e){}
+        }
+        var t0=null;
+        function frame(ts){
+          if(!t0)t0=ts;
+          var p=Math.min((ts-t0)/1400,1),e=1-Math.pow(1-p,3);
+          var cur=isFloat?(e*target).toFixed(decimals):Math.floor(e*target).toLocaleString();
+          el.textContent=prefix+cur+suffix;
+          if(p<1)requestAnimationFrame(frame);else el.textContent=prefix+(isFloat?target.toFixed(decimals):target.toLocaleString())+suffix;
+        }
+        requestAnimationFrame(frame);
+      }
+
+      function catmullRomPath(p){ if(p.length<2)return '';
+        var d='M '+p[0][0]+' '+p[0][1];
+        for(var i=0;i<p.length-1;i++){
+          var a=p[i-1]||p[i],b=p[i],c=p[i+1],e=p[i+2]||c;
+          d+=' C '+(b[0]+(c[0]-a[0])/6)+' '+(b[1]+(c[1]-a[1])/6)+','+(c[0]-(e[0]-b[0])/6)+' '+(c[1]-(e[1]-b[1])/6)+','+c[0]+' '+c[1];
+        } return d; }
+
+      function buildChart(el){
+        var data;
+        try{ data=JSON.parse(el.dataset.chart); }catch(e){ return; }
+        var NS='http://www.w3.org/2000/svg';
+        var W=800,H=340,PAD=46;
+        var svg=document.createElementNS(NS,'svg');
+        svg.setAttribute('viewBox','0 0 '+W+' '+H);
+        var labels=data.labels||[],sets=data.datasets||[];
+        var all=sets.reduce(function(acc,s){return acc.concat(s.data);},[0]);
+        var max=Math.max.apply(null,all.map(function(v){return isFinite(v)?v:0;}));
+
+        function ramp(i){ var hue=[getComputedStyle(document.documentElement).getPropertyValue('--brand').trim()||'#5842EA','#9463FF','#00B3A6','#C9BBFF','#eab308'][i%5]; return hue; }
+
+        if(data.type==='bar'){
+          var groups=labels.length,series=sets.length;
+          var inner=W-PAD*2,bw=inner/groups,gw=bw*0.68/Math.max(series,1);
+          sets.forEach(function(s,si){
+            s.data.forEach(function(v,gi){
+              var h=max?(v/max)*(H-PAD*2-24):0;
+              var x=PAD+gi*bw+(bw-gw*series)/2+si*gw;
+              var r=document.createElementNS(NS,'rect');
+              r.setAttribute('x',x);r.setAttribute('y',H-PAD-h);
+              r.setAttribute('width',Math.max(gw-3,2));r.setAttribute('height',Math.max(h,1));
+              r.setAttribute('rx',3);r.setAttribute('fill',ramp(si));
+              svg.appendChild(r);
+              gsap.set(r,{scaleY:0,svgOrigin:(x+gw/2)+' '+(H-PAD)});
+              gsap.to(r,{scaleY:1,duration:.7,delay:gi*.06+si*.1,ease:'power3.out',
+                onComplete:(function(val,xx){return function(){
+                  var t=document.createElementNS(NS,'text');
+                  t.setAttribute('x',xx);t.setAttribute('y',H-PAD-6);t.setAttribute('text-anchor','middle');
+                  t.setAttribute('class','val');t.textContent=val;
+                  svg.appendChild(t);gsap.fromTo(t,{opacity:0},{opacity:1,duration:.3});
+                };})(v,x+gw/2)});
+            });
+          });
+          labels.forEach(function(l,gi){
+            var t=document.createElementNS(NS,'text');
+            t.setAttribute('x',PAD+gi*bw+bw/2);t.setAttribute('y',H-PAD+22);t.setAttribute('text-anchor','middle');t.setAttribute('class','lab');
+            t.textContent=l;svg.appendChild(t);
+          });
+        } else if(data.type==='line'){
+          var innerW=W-PAD*2,innerH=H-PAD*2-24;
+          sets.forEach(function(s,si){
+            var pts=s.data.map(function(v,i){
+              return [PAD+(labels.length>1?i*innerW/(labels.length-1):innerW/2),H-PAD-(max?v/max*innerH:0)];
+            });
+            var p=document.createElementNS(NS,'path');
+            p.setAttribute('d',catmullRomPath(pts));
+            p.setAttribute('fill','none');p.setAttribute('stroke',ramp(si));p.setAttribute('stroke-width',2.5);
+            svg.appendChild(p);
+            var L=p.getTotalLength();
+            p.style.strokeDasharray=L;p.style.strokeDashoffset=L;
+            gsap.to(p,{strokeDashoffset:0,duration:1.4,delay:si*.25,ease:'power2.inOut'});
+            pts.forEach(function(pt,pi){
+              var c=document.createElementNS(NS,'circle');
+              c.setAttribute('cx',pt[0]);c.setAttribute('cy',pt[1]);c.setAttribute('r',4);c.setAttribute('fill',ramp(si));
+              svg.appendChild(c);
+              gsap.fromTo(c,{scale:0,svgOrigin:pt[0]+' '+pt[1]},{scale:1,duration:.4,delay:.5+si*.25+pi*.05,ease:'back.out(2)'});
+            });
+          });
+          labels.forEach(function(l,i){
+            var t=document.createElementNS(NS,'text');
+            t.setAttribute('x',PAD+(labels.length>1?i*innerW/(labels.length-1):innerW/2));t.setAttribute('y',H-PAD+22);
+            t.setAttribute('text-anchor','middle');t.setAttribute('class','lab');t.textContent=l;svg.appendChild(t);
+          });
+        } else if(data.type==='pie'){
+          var vals=(sets[0]&&sets[0].data)||[];
+          var total=vals.reduce(function(a,b){return a+b;},0)||1;
+          var cx=W/2,cy=H/2,baseR=Math.min(W,H)/2-60;
+          vals.forEach(function(v,i){
+            var r=baseR-i*34;if(r<=10)return;
+            var C=2*Math.PI*r,pct=v/total;
+            var ring=document.createElementNS(NS,'circle');
+            ring.setAttribute('cx',cx);ring.setAttribute('cy',cy);ring.setAttribute('r',r);
+            ring.setAttribute('fill','none');ring.setAttribute('stroke',ramp(i));ring.setAttribute('stroke-width',18);
+            ring.setAttribute('stroke-dasharray',C+' '+C);
+            ring.setAttribute('transform','rotate(-90 '+cx+' '+cy+')');
+            var track=ring.cloneNode();
+            track.setAttribute('stroke','rgba(255,255,255,.07)');
+            svg.insertBefore(track,svg.firstChild);
+            svg.appendChild(ring);
+            ring.setAttribute('stroke-dashoffset',C);
+            gsap.to(ring,{attr:{'stroke-dashoffset':C*(1-pct)},duration:1.2,delay:i*.15,ease:'power2.out'});
+            var lab=document.createElementNS(NS,'text');
+            lab.setAttribute('x',cx);lab.setAttribute('y',cy-baseR+i*34+4);lab.setAttribute('text-anchor','middle');lab.setAttribute('class','lab');
+            lab.textContent=(labels[i]||'')+' '+(Math.round(pct*1000)/10)+'%';
+            svg.appendChild(lab);
+          });
+        }
+        el.appendChild(svg);
+      }
+
+      function buildChartsFor(sec){
+        var charts=sec.querySelectorAll('[data-chart]');
+        if(!charts.length)return;
+        var kpis=sec.querySelectorAll('.kpi-value');
+        ScrollTrigger.create({
+          trigger:sec,start:'top 58%',once:true,
+          onEnter:function(){
+            charts.forEach(buildChart);
+            kpis.forEach(countUp);
+          }
+        });
+      }
+
+      window.addEventListener('load',function(){ScrollTrigger.refresh();});
+      window.__onViewportChange=function(){ScrollTrigger.refresh();};
+    })();
+    </script>`;
+
+// dist/renderer/animated/iridescence.js
+function buildIridescence(ctx) {
+  const { doc, lang, version: version2, irHash, primaryColor } = ctx;
+  const hero = heroCopy(doc);
+  const kpis = extractKpis(doc);
+  const summary = {
+    title: doc.frontmatter.title,
+    theme: "iridescence",
+    lang,
+    date: doc.frontmatter.date ?? "",
+    abstract: doc.frontmatter.abstract ?? "",
+    poster_title: doc.frontmatter.poster_title ?? "",
+    poster_subtitle: doc.frontmatter.poster_subtitle ?? "",
+    poster_note: doc.frontmatter.poster_note ?? "",
+    kpis,
+    sections: doc.sections.map((s) => ({ title: s.heading, slug: s.slug }))
+  };
+  const fmForLd = { ...doc.frontmatter, theme: "iridescence" };
+  const jsonLd = buildReportJsonLd({ frontmatter: fmForLd, irHash, rendererVersion: version2 });
+  const sections = buildBlocks(ctx);
+  const navDots = sections.map((s, i) => `        <a href="#${s.id}" title="${escHtml(s.heading)}"><span></span>${escHtmlText(s.heading)}</a>`).join("\n");
+  return `<!DOCTYPE html>
+<html lang="${lang}" data-template="kai-report-creator" data-version="${version2}" data-theme="iridescence" data-render-mode="animated" data-animation="iridescence">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="generator" content="kai-report-creator iridescence v${version2}">
+    <meta name="ir-hash" content="${irHash}">
+    <title>${escHtml(doc.frontmatter.title || "Report")}</title>
+    <script type="application/ld+json">${escapeJsonLdForHtml(jsonLd)}</script>
+    <style>
+${IRIDESCENCE_CSS(primaryColor)}
+    </style>
+</head>
+<body>
+    <script type="application/json" id="report-summary">${JSON.stringify(summary)}</script>
+
+    <nav class="navsecs" id="nav-sections" aria-label="Sections">
+${navDots}
+    </nav>
+    <button class="playbtn" id="play-btn" title="Play (F5)">\u25B6</button>
+
+    <section class="hero" id="s0" data-sec data-heading="${escHtml(hero.title)}">
+      <canvas id="iridescence-canvas"></canvas>
+      <div class="veil"></div>
+      <div class="hero-content">
+        <p class="mono-tag">${escHtmlText((doc.frontmatter.date ?? "").replace(/-/g, "."))} / REPORT</p>
+        <h1>${accentTitle(hero.title, primaryColor)}</h1>
+        ${hero.sub ? `<p class="hero-sub">${escHtmlText(hero.sub)}</p>` : ""}
+        <p class="hero-meta mono">${escHtmlText([doc.frontmatter.author, doc.frontmatter.date].filter(Boolean).join(" \xB7 "))}</p>
+        ${kpis.length ? `<div class="hero-stats">${kpis.slice(0, 4).map((k) => `<div><span class="mono">${escHtmlText(k.label)}</span><strong>${escHtmlText(k.value)}</strong></div>`).join("")}</div>` : ""}
+      </div>
+      <div class="scroll-hint">SCROLL \u2193</div>
+    </section>
+
+    <main>
+${sections.slice(1).map((s) => s.html).join("\n")}
+    </main>
+
+${CHROME_JS}
+${IRIDESCENCE_RUNTIME}
+</body>
+</html>`;
+}
+function accentTitle(title, accent) {
+  const t = escHtmlText(title);
+  const cut = Math.ceil(t.length / 2);
+  const idx = t.slice(0, cut).length;
+  const head = t.slice(0, idx);
+  const tail = t.slice(idx);
+  return tail ? `${head}<em style="color:${escHtml(accent)}">${tail}</em>` : t;
+}
+function buildBlocks(ctx) {
+  const { doc } = ctx;
+  const out = [{ id: "s0", heading: heroCopy(doc).title, html: "" }];
+  doc.sections.forEach((section, idx) => {
+    const id = `s${idx + 1}`;
+    const items = sectionItems(section);
+    const inner = [];
+    for (const item of items) {
+      inner.push(renderItem2(item, ctx));
+    }
+    out.push({
+      id,
+      heading: section.heading,
+      html: `      <section class="block" id="${id}" data-sec data-heading="${escHtml(section.heading)}">
+        <div class="block-head">
+          <p class="mono kicker">${String(idx + 2).padStart(2, "0")} / ${escHtmlText(section.heading.toUpperCase())}</p>
+          <h2>${escHtmlText(section.heading)}</h2>
+        </div>
+${inner.join("\n")}
+      </section>`
+    });
+  });
+  return out;
+}
+function renderItem2(item, ctx) {
+  const { block } = item;
+  const accent = ctx.primaryColor;
+  switch (item.kind) {
+    case "prose":
+      return `        <p class="prose">${escHtmlPreserveInline(item.text ?? "")}</p>`;
+    case "kpi": {
+      const cards = extractKpis({ ...ctx.doc, blocks: [block] }).map((k) => `
+          <div class="card">
+            <p class="mono card-label">${escHtmlText(k.label)}</p>
+            <p class="card-value">${escHtmlText(k.value)}</p>
+            ${k.trend ? `<p class="card-trend" style="color:${escHtml(accent)}">${escHtmlText(k.trend)}</p>` : ""}
+          </div>`).join("");
+      return `        <div class="cards-grid" data-reveal>${cards}
+        </div>`;
+    }
+    case "chart": {
+      const type2 = block.params["type"] ?? "bar";
+      const data = parseChartSeries(block.body);
+      if (type2 === "bar" && data.datasets.length > 0) {
+        const all = data.datasets.flatMap((d) => d.data.filter((v) => isFinite(v)));
+        const max = Math.max(0, ...all);
+        const rows2 = data.labels.map((label, i) => {
+          const v = data.datasets[0].data[i];
+          const known = isFinite(v) && v !== null;
+          const pct = known && max > 0 ? Math.round(v / max * 100) : 0;
+          const fill = known ? `<div class="bar-fill" data-w="${pct}" style="background:${escHtml(accent)}"></div>` : `<div class="bar-fill ghost" data-w="8"></div>`;
+          return `          <div class="bar-row">
+            <span class="mono bar-label">${escHtmlText(label)}</span>
+            <div class="bar-track">${fill}</div>
+            <span class="mono bar-value">${known ? escHtmlText(String(v)) : "\u672A\u516C\u5F00"}</span>
+          </div>`;
+        }).join("\n");
+        return `        <div class="bars" data-bars>
+${rows2}
+        </div>`;
+      }
+      const head = `<tr><th>${escHtmlText(data.datasets.map((d) => d.name).join(" / ") || "value")}</th>${data.labels.map((l) => `<th>${escHtmlText(l)}</th>`).join("")}</tr>`;
+      const rows = data.datasets.map((d) => `<tr><td class="rowname">${escHtmlText(d.name)}</td>${d.data.map((v) => `<td>${isFinite(v) ? v : "\u672A\u516C\u5F00"}</td>`).join("")}</tr>`).join("");
+      return `        <div class="tablewrap"><table><thead>${head}</thead><tbody>${rows}</tbody></table></div>`;
+    }
+    case "table": {
+      const lines = block.body.trim().split("\n").filter((l) => l.trim());
+      if (lines.length < 2)
+        return "";
+      const cells = (line) => line.split("|").map((c) => c.trim()).filter((c) => c && !/^[-:]+$/.test(c));
+      const head = `<tr>${cells(lines[0]).map((c) => `<th>${escHtmlPreserveInline(c)}</th>`).join("")}</tr>`;
+      const rows = lines.slice(2).map((l) => `<tr>${cells(l).map((c) => `<td>${escHtmlPreserveInline(c)}</td>`).join("")}</tr>`).join("");
+      return `        <div class="tablewrap"><table><thead>${head}</thead><tbody>${rows}</tbody></table></div>`;
+    }
+    case "callout":
+      return `        <div class="cel"><p>${escHtmlPreserveInline(block.body.trim())}</p></div>`;
+    case "list": {
+      const items = block.body.trim().split("\n").map((l) => l.replace(/^[-*]\s*/, "").replace(/^\d+\.\s*/, "").trim()).filter(Boolean);
+      return `        <ul class="dolist">
+${items.map((i) => `          <li><span class="mono">\u25B8</span> ${escHtmlPreserveInline(i)}</li>`).join("\n")}
+        </ul>`;
+    }
+    case "timeline": {
+      const items = block.body.trim().split("\n").filter((l) => l.trim().startsWith("-")).map((l) => {
+        const m = l.trim().slice(1).trim().match(/^(.+?):\s+(.+)$/);
+        return m ? { date: m[1], content: m[2] } : { date: "", content: l.trim().slice(1).trim() };
+      });
+      return `        <div class="cels-grid">
+${items.map((i) => `          <div class="cel"><p class="mono cel-date">${escHtmlText(i.date)}</p><p>${escHtmlPreserveInline(i.content)}</p></div>`).join("\n")}
+        </div>`;
+    }
+    case "code":
+      return `        <pre class="code">${escHtmlText(block.body.trim())}</pre>`;
+    case "image": {
+      const src = block.params["src"] ?? "";
+      const alt = block.params["alt"] ?? "";
+      const caption = block.params["caption"] ?? block.body.trim();
+      if (!src)
+        return "";
+      return `        <figure class="fig"><img src="${escHtml(src)}" alt="${escHtml(alt)}">${caption ? `<figcaption class="mono">${escHtmlText(caption)}</figcaption>` : ""}</figure>`;
+    }
+    default:
+      return "";
+  }
+}
+function IRIDESCENCE_CSS(accent) {
+  return `
+:root{
+  --ink:#0a0a12;
+  --hairline:#e8e8ee;
+  --accent:${accent};
+  --mono:${MONO_STACK};
+  --sans:${SANS_STACK};
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#fff;color:var(--ink);font-family:var(--sans);overflow-x:hidden}
+.mono,.mono-tag,.kicker,.card-label,.bar-label,.bar-value,.hero-meta,figcaption,.cel-date{font-family:var(--mono)}
+.hero{position:relative;min-height:100vh;display:flex;align-items:center;justify-content:center;overflow:hidden}
+#iridescence-canvas{position:absolute;inset:0;width:100%;height:100%;z-index:0}
+.veil{position:absolute;inset:0;z-index:1;background:linear-gradient(180deg,rgba(255,255,255,.08),rgba(255,255,255,.02) 40%,rgba(255,255,255,.45))}
+.hero-content{position:relative;z-index:2;text-align:center;padding:0 clamp(1.25rem,6vw,5rem);max-width:64rem}
+.mono-tag{font-size:.7rem;letter-spacing:.28em;text-transform:uppercase;color:var(--ink);opacity:.6;margin-bottom:1.4rem}
+.hero h1{font-size:clamp(2.75rem,8vw,6.75rem);font-weight:900;letter-spacing:-.03em;line-height:1.04}
+.hero h1 em{font-style:normal}
+.hero-sub{margin-top:1.6rem;font-size:clamp(.95rem,1.4vw,1.15rem);line-height:1.8;opacity:.78;max-width:38rem;margin-left:auto;margin-right:auto}
+.hero-meta{margin-top:1.2rem;font-size:.72rem;letter-spacing:.08em;opacity:.55}
+.hero-stats{display:flex;gap:2.6rem;justify-content:center;margin-top:2.4rem;flex-wrap:wrap}
+.hero-stats span{display:block;font-size:.62rem;letter-spacing:.16em;text-transform:uppercase;opacity:.55;margin-bottom:.4rem}
+.hero-stats strong{font-size:1.5rem;font-weight:800;font-variant-numeric:tabular-nums lining-nums}
+.scroll-hint{position:absolute;bottom:4.5vh;left:50%;transform:translateX(-50%);z-index:2;font-family:var(--mono);font-size:.62rem;letter-spacing:.3em;opacity:.55;animation:bob 1.8s ease-in-out infinite}
+.scroll-hint.hidden{display:none}
+@keyframes bob{0%,100%{transform:translate(-50%,0)}50%{transform:translate(-50%,8px)}}
+.block{padding:5.5rem clamp(1.25rem,7vw,7rem);border-top:1px solid var(--hairline)}
+.block-head{display:flex;flex-direction:column;gap:1rem;margin-bottom:2.4rem}
+.kicker{font-size:.66rem;font-weight:700;letter-spacing:.24em;text-transform:uppercase;color:var(--accent)}
+.block h2{font-size:clamp(1.7rem,4vw,2.8rem);font-weight:900;letter-spacing:-.03em;line-height:1.1}
+.prose{max-width:44rem;line-height:1.85;opacity:.82;margin-bottom:1.2rem;font-size:1rem}
+.cards-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(11rem,1fr));gap:1.1rem}
+.card{border:1px solid var(--hairline);border-radius:16px;padding:1.5rem 1.3rem;transition:transform .25s,box-shadow .25s}
+.card:hover{transform:translateY(-4px);box-shadow:0 12px 32px rgba(10,10,18,.08)}
+.card-label{font-size:.6rem;letter-spacing:.16em;text-transform:uppercase;opacity:.55;margin-bottom:.8rem}
+.card-value{font-size:1.7rem;font-weight:800;font-variant-numeric:tabular-nums lining-nums}
+.card-trend{font-size:.72rem;margin-top:.45rem}
+.bars{display:grid;grid-template-columns:repeat(auto-fit,minmax(16rem,1fr));gap:2.4rem 3rem}
+.bar-row{display:grid;grid-template-columns:minmax(4.5rem,auto) 1fr auto;gap:.8rem;align-items:center;margin-bottom:1rem}
+.bar-label{font-size:.64rem;letter-spacing:.1em;text-transform:uppercase;opacity:.6}
+.bar-track{height:12px;background:#f0f0f6;border-radius:99px;overflow:hidden}
+.bar-fill{height:100%;width:0;border-radius:99px;transition:width .8s cubic-bezier(.2,.7,.2,1)}
+.bar-fill.ghost{background:repeating-linear-gradient(45deg,#d9d9e2 0 6px,#ececf2 6px 12px)}
+.bar-value{font-size:.72rem;font-variant-numeric:tabular-nums lining-nums;opacity:.75}
+.tablewrap{overflow-x:auto;margin-top:.5rem}
+table{width:100%;border-collapse:collapse;font-size:.9rem}
+th{font-family:var(--mono);font-size:.62rem;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);text-align:left;padding:.6rem;border-bottom:2px solid var(--ink)}
+td{padding:.6rem;border-bottom:1px solid var(--hairline);font-variant-numeric:tabular-nums lining-nums}
+td.rowname{font-weight:700}
+.cel{border:1px solid var(--hairline);border-radius:16px;padding:1.6rem}
+.cel p{line-height:1.75;opacity:.85}
+.cel-date{font-size:.66rem;letter-spacing:.12em;color:var(--accent);margin-bottom:.6rem}
+.cels-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(14rem,1fr));gap:1.1rem}
+.dolist li{list-style:none;padding:.55rem 0;border-bottom:1px solid var(--hairline);display:flex;gap:.7rem;line-height:1.7;opacity:.85}
+.dolist .mono{color:var(--accent)}
+.code{background:#f6f6fa;border:1px solid var(--hairline);border-radius:14px;padding:1.2rem 1.4rem;font-family:var(--mono);font-size:.78rem;line-height:1.7;overflow-x:auto}
+.fig{text-align:center}
+.fig img{max-width:100%;border-radius:14px;border:1px solid var(--hairline)}
+.fig figcaption{font-size:.64rem;margin-top:.7rem;opacity:.6}
+.navsecs{position:fixed;right:18px;top:50%;transform:translateY(-50%);z-index:50;display:flex;flex-direction:column;gap:12px;align-items:flex-end}
+.navsecs a{display:flex;align-items:center;gap:8px;text-decoration:none;color:var(--ink);font-family:var(--mono);font-size:.6rem;letter-spacing:.14em;opacity:.7}
+.navsecs a span{width:8px;height:8px;border-radius:50%;background:#d9d9e2;transition:all .25s}
+.navsecs a.active span{background:var(--accent);box-shadow:0 0 10px var(--accent)}
+.navsecs a:not(:hover){font-size:0;gap:0}
+.navsecs a:hover{opacity:1}
+.playbtn{position:fixed;right:18px;bottom:18px;z-index:50;width:46px;height:46px;border-radius:50%;border:1px solid var(--hairline);background:#fff;box-shadow:0 6px 20px rgba(10,10,18,.1);color:var(--ink);font-size:1rem;cursor:pointer}
+@media (max-width:768px){
+  .navsecs{display:none}
+  .block{padding:3.5rem 1.25rem}
+}
+@media print{.navsecs,.playbtn,.scroll-hint{display:none!important}.hero{min-height:auto}.block{page-break-inside:avoid}}
+`.trim();
+}
+var IRIDESCENCE_RUNTIME = `    <script>
+    (function(){
+      /* --- nav sync (vanilla observer) --- */
+      var secs=[].slice.call(document.querySelectorAll('#s0,section[data-sec]'));
+      if('IntersectionObserver' in window){
+        var io=new IntersectionObserver(function(entries){
+          entries.forEach(function(e){
+            if(!e.isIntersecting)return;
+            var i=secs.indexOf(e.target);
+            if(i>-1&&window.__animatedNav) window.__animatedNav.syncNav(i);
+          });
+        },{rootMargin:'-45% 0px -45% 0px'});
+        secs.forEach(function(s){io.observe(s);});
+      }
+
+      /* --- bar fills: once per chart block --- */
+      var barsBlocks=[].slice.call(document.querySelectorAll('[data-bars]'));
+      if('IntersectionObserver' in window){
+        var bio=new IntersectionObserver(function(entries,obs){
+          entries.forEach(function(e){
+            if(!e.isIntersecting)return;
+            obs.unobserve(e.target);
+            e.target.querySelectorAll('.bar-fill').forEach(function(f){f.style.width=(f.dataset.w||0)+'%';});
+          });
+        },{threshold:.35});
+        barsBlocks.forEach(function(b){bio.observe(b);});
+      } else {
+        barsBlocks.forEach(function(b){b.querySelectorAll('.bar-fill').forEach(function(f){f.style.width=(f.dataset.w||0)+'%';});});
+      }
+
+      /* --- WebGL iridescent hero (raw WebGL1, zero CDN) --- */
+      var canvas=document.getElementById('iridescence-canvas');
+      if(canvas){
+        var gl=canvas.getContext('webgl');
+        if(!gl){
+          canvas.style.background='linear-gradient(135deg,#f6f4ff 0%,#eef7f6 50%,#f9f4fb 100%)';
+        } else {
+          var vsrc='attribute vec2 position;attribute vec2 uv;varying vec2 vUv;void main(){vUv=uv;gl_Position=vec4(position,0.,1.);}';
+          var fsrc='precision highp float;uniform float uTime;uniform vec3 uColor;uniform vec3 uResolution;uniform vec2 uMouse;uniform float uAmplitude;uniform float uSpeed;varying vec2 vUv;void main(){float mr=min(uResolution.x,uResolution.y);vec2 uv=(vUv.xy*2.0-1.0)*uResolution.xy/mr;uv+=(uMouse-vec2(0.5))*uAmplitude;float d=-uTime*0.5*uSpeed;float a=0.0;for(float i=0.0;i<8.0;++i){a+=cos(i-d-a*uv.x);d+=sin(uv.y*i+a);}d+=uTime*0.5*uSpeed;vec3 col=vec3(cos(uv*vec2(d,a))*0.6+0.4,cos(a+d)*0.5+0.5);col=cos(col*cos(vec3(d,a,2.5))*0.5+0.5)*uColor;gl_FragColor=vec4(col,1.0);}';
+          function sh(type,src){var s=gl.createShader(type);gl.shaderSource(s,src);gl.compileShader(s);return s;}
+          var prog=gl.createProgram();
+          gl.attachShader(prog,sh(gl.VERTEX_SHADER,vsrc));
+          gl.attachShader(prog,sh(gl.FRAGMENT_SHADER,fsrc));
+          gl.linkProgram(prog);gl.useProgram(prog);
+          var buf=gl.createBuffer();
+          gl.bindBuffer(gl.ARRAY_BUFFER,buf);
+          gl.bufferData(gl.ARRAY_BUFFER,new Float32Array([-1,-1,0,0, 1,-1,1,0, 1,1,1,1, -1,1,0,1]),gl.STATIC_DRAW);
+          var pos=gl.getAttribLocation(prog,'position'),uv=gl.getAttribLocation(prog,'uv');
+          gl.enableVertexAttribArray(pos);gl.vertexAttribPointer(pos,2,gl.FLOAT,false,16,0);
+          gl.enableVertexAttribArray(uv);gl.vertexAttribPointer(uv,2,gl.FLOAT,false,16,8);
+          var uT=gl.getUniformLocation(prog,'uTime'),uR=gl.getUniformLocation(prog,'uResolution');
+          var uC=gl.getUniformLocation(prog,'uColor'),uM=gl.getUniformLocation(prog,'uMouse');
+          var uA=gl.getUniformLocation(prog,'uAmplitude'),uS=gl.getUniformLocation(prog,'uSpeed');
+          gl.uniform3f(uC,0.984,0.992,1.0);gl.uniform1f(uS,1.0);gl.uniform1f(uA,0.1);gl.uniform2f(uM,0.5,0.5);
+          function resize(){
+            var rect=canvas.getBoundingClientRect();
+            var dpr=Math.min(window.devicePixelRatio||1,2);
+            canvas.width=Math.max(rect.width*dpr,1);canvas.height=Math.max(rect.height*dpr,1);
+            gl.viewport(0,0,canvas.width,canvas.height);
+            gl.uniform3f(uR,canvas.width,canvas.height,1.0);
+          }
+          resize();window.addEventListener('resize',resize);
+          var running=true,t0=performance.now();
+          function frame(now){
+            if(running){gl.uniform1f(uT,(now-t0)/1000);gl.drawArrays(gl.TRIANGLE_FAN,0,4);}
+            requestAnimationFrame(frame);
+          }
+          requestAnimationFrame(frame);
+          if('IntersectionObserver' in window){
+            new IntersectionObserver(function(entries){
+              running=entries[0]&&entries[0].isIntersecting;
+            },{threshold:.05}).observe(canvas);
+          }
+        }
+      }
+    })();
+    </script>`;
 
 // dist/renderer/components/kpi.js
 function renderKpi(block, options) {
@@ -33806,6 +35120,9 @@ function renderReport(input) {
   if (doc.frontmatterWarnings.length > 0) {
     warnings.push(...doc.frontmatterWarnings);
   }
+  if (isAnimatedMode(doc.frontmatter.animations)) {
+    return renderAnimated(input, doc, warnings);
+  }
   const themeName = input.themeOverride ?? doc.frontmatter.theme;
   const theme = loadTheme(themeName);
   const css = assembleCSS(theme, doc.frontmatter.theme_overrides);
@@ -33813,6 +35130,20 @@ function renderReport(input) {
   const animations = doc.frontmatter.animations !== false;
   const toc = doc.frontmatter.toc !== false;
   const renderOpts = { theme: themeName, lang, animations };
+  const titleAccent = splitAccentPhrase(doc.frontmatter.title || "Report");
+  const titlePlain = titleAccent.plain;
+  const coverEnabled = !isAnimatedMode(doc.frontmatter.animations) && shouldRenderCover(doc.frontmatter.cover, themeName);
+  const coverHtml = coverEnabled ? renderCoverSection({
+    cover: normaliseCover(parseCoverBody(doc.coverBody ?? ""), warnings),
+    titleHtml: titleAccent.html,
+    abstract: doc.frontmatter.abstract ?? "",
+    author: doc.frontmatter.author ?? "",
+    date: doc.frontmatter.date ?? "",
+    lang
+  }) : void 0;
+  if (coverEnabled && doc.coverBody === null && doc.frontmatter.cover === "hero") {
+    warnings.push("cover: hero requested but no :::cover fence found; rendering cover from frontmatter only");
+  }
   const needsEcharts = doc.blocks.some((b) => b.tag === "chart");
   const needsHighlightjs = doc.blocks.some((b) => b.tag === "code");
   const bodyParts = [];
@@ -33933,7 +35264,7 @@ function renderReport(input) {
     bodyParts.push(`        </section>`);
   }
   const reportSummary = {
-    title: doc.frontmatter.title,
+    title: titlePlain,
     theme: themeName,
     lang,
     date: doc.frontmatter.date ?? "",
@@ -33952,14 +35283,14 @@ function renderReport(input) {
     level: s.level
   }));
   const shellOpts = {
-    title: doc.frontmatter.title || "Report",
+    title: titlePlain,
     theme: themeName,
     lang,
     css,
     needsEcharts,
     needsHighlightjs,
     toc,
-    animations,
+    animations: !isAnimatedMode(doc.frontmatter.animations),
     irHash,
     reportSummaryJson: JSON.stringify(reportSummary),
     bodyContent: bodyParts.join("\n"),
@@ -33968,7 +35299,9 @@ function renderReport(input) {
     date: doc.frontmatter.date ?? "",
     abstract: doc.frontmatter.abstract ?? "",
     version: "2.0.0",
-    frontmatter: doc.frontmatter
+    // JSON-LD also uses the plain title form
+    frontmatter: { ...doc.frontmatter, title: titlePlain },
+    coverHtml
   };
   const html = buildHtmlShell(shellOpts);
   const validation = validateOutput(html);
@@ -33976,8 +35309,11 @@ function renderReport(input) {
     warnings.push("L0 validation failed: possible ::: leakage or missing ir-hash");
   if (!validation.l1)
     warnings.push("L1 validation failed: shell structure incomplete");
-  if (!validation.l2)
+  if (!validation.l2) {
     warnings.push("L2 validation failed: missing required IDs");
+    for (const f of validation.coverFindings)
+      warnings.push(`cover: ${f}`);
+  }
   if (!validation.l3)
     warnings.push(`L3 validation failed: ${validation.qualityFindings.join("; ")}`);
   const outputPath = input.outputPath ?? `report-${doc.frontmatter.date || "output"}.html`;
@@ -34077,13 +35413,67 @@ function validateOutput(html) {
     "report-summary"
   ];
   const l2 = requiredIds.every((id) => html.includes(`id="${id}"`));
+  const coverFindings = validateCoverStructure(html);
+  const l2Cover = coverFindings.length === 0;
   const qualityFindings = validateKpiValues(html);
   const l3 = qualityFindings.length === 0;
-  return { l0: l0Pass, l1, l2, l3, qualityFindings };
+  return { l0: l0Pass, l1, l2: l2 && l2Cover, l3, qualityFindings, coverFindings };
 }
-var PLACEHOLDER_RE2 = /\[(?:INSERT VALUE|数据待填写)\]/;
-function hasRealNumber(value) {
-  return /\d/.test(value) && !PLACEHOLDER_RE2.test(value);
+function validateCoverStructure(html) {
+  const findings = [];
+  const theme = /data-theme="([^"]+)"/.exec(html)?.[1] ?? "";
+  const mode = /data-cover="([^"]+)"/.exec(html)?.[1];
+  if (theme === "forest-editorial" && mode !== "hero") {
+    findings.push('forest-editorial implies a cover; <html> needs data-cover="hero"');
+  }
+  if (mode !== "hero")
+    return findings;
+  const markup = html.replace(/<script\b[\s\S]*?<\/script>/gi, "").replace(/<style\b[\s\S]*?<\/style>/gi, "");
+  const coverStart = markup.indexOf('id="report-cover"');
+  if (coverStart === -1) {
+    findings.push('data-cover="hero" but no id="report-cover" element');
+    return findings;
+  }
+  const coverEnd = markup.indexOf("</section>", coverStart);
+  const coverSlice = markup.slice(coverStart, coverEnd === -1 ? void 0 : coverEnd);
+  const wrapperStart = markup.indexOf('class="report-wrapper"');
+  if (coverStart > wrapperStart && wrapperStart !== -1) {
+    findings.push("#report-cover must be a sibling before .report-wrapper");
+  }
+  const h1Total = (markup.match(/<h1[\s>]/g) ?? []).length;
+  if (h1Total !== 1) {
+    findings.push(`exactly one <h1> expected, found ${h1Total}`);
+  } else if (!/<h1[\s>]/.test(coverSlice)) {
+    findings.push("the single <h1> must live inside #report-cover");
+  }
+  const cards = (coverSlice.match(/class="cover-card"/g) ?? []).length;
+  if (cards !== 0 && cards !== 3)
+    findings.push(`.cover-card count must be 0 or 3, found ${cards}`);
+  const accents = (coverSlice.match(/data-accent=/g) ?? []).length;
+  if (accents > 1)
+    findings.push(`at most one accent card, found ${accents}`);
+  const chips = (coverSlice.match(/class="cover-chip"/g) ?? []).length;
+  if (chips > 4)
+    findings.push(`at most 4 chips, found ${chips}`);
+  if (/class="cover-watermark"(?![^>]*aria-hidden="true")/.test(coverSlice)) {
+    findings.push('.cover-watermark needs aria-hidden="true"');
+  }
+  const cardBtns = (markup.match(/id="card-mode-btn"/g) ?? []).length;
+  if (cardBtns !== 1) {
+    findings.push(`exactly one #card-mode-btn expected, found ${cardBtns}`);
+  } else if (!coverSlice.includes('id="card-mode-btn"')) {
+    findings.push("the #card-mode-btn must live inside #report-cover");
+  }
+  const titleText = /<title>([\s\S]*?)<\/title>/.exec(markup)?.[1] ?? "";
+  const coverText = coverSlice.replace(/<[^>]+>/g, "");
+  if (coverText.includes("[[") || coverText.includes("]]") || titleText.includes("[[") || titleText.includes("]]")) {
+    findings.push("literal [[ or ]] survived into the rendered HTML");
+  }
+  return findings;
+}
+var PLACEHOLDER_RE3 = /\[(?:INSERT VALUE|数据待填写)\]/;
+function hasRealNumber2(value) {
+  return /\d/.test(value) && !PLACEHOLDER_RE3.test(value);
 }
 function stripTags(fragment) {
   return fragment.replace(/<[^>]+>/g, "").trim();
@@ -34093,7 +35483,7 @@ function validateKpiValues(html) {
   const kpiValuePattern = /<div\b[^>]*class="[^"]*\bkpi-value\b[^"]*"[^>]*>(.*?)<\/div>/gs;
   for (const match of html.matchAll(kpiValuePattern)) {
     const value = stripTags(match[1] ?? "");
-    if (!hasRealNumber(value))
+    if (!hasRealNumber2(value))
       findings.push(`invalid KPI value "${value}"`);
   }
   const summaryMatch = html.match(/<script\b[^>]*id="report-summary"[^>]*>\s*([\s\S]*?)\s*<\/script>/);
@@ -34106,7 +35496,7 @@ function validateKpiValues(html) {
     if (Array.isArray(summary.kpis)) {
       for (const item of summary.kpis) {
         const value = String(item?.value ?? "").trim();
-        if (value && !hasRealNumber(value))
+        if (value && !hasRealNumber2(value))
           findings.push(`invalid summary KPI value "${value}"`);
       }
     }
@@ -34115,37 +35505,51 @@ function validateKpiValues(html) {
   }
   return findings;
 }
-function extractKpis(doc) {
-  const kpis = [];
-  for (const block of doc.blocks) {
-    if (block.tag !== "kpi")
-      continue;
-    const lines = block.body.split("\n");
-    let current = null;
-    for (const line of lines) {
-      const t = line.trim();
-      if (t.startsWith("- label:") || t.startsWith("-label:")) {
-        if (current && current.label)
-          kpis.push({ label: current.label, value: current.value ?? "", trend: current.trend ?? "" });
-        const m = t.match(/label:\s*(.+)/);
-        current = { label: m ? m[1].trim().replace(/^['"]|['"]$/g, "") : "" };
-      } else if (current) {
-        if (t.startsWith("value:")) {
-          const m = t.match(/value:\s*(.+)/);
-          if (m)
-            current.value = m[1].trim().replace(/^['"]|['"]$/g, "");
-        }
-        if (t.startsWith("trend:")) {
-          const m = t.match(/trend:\s*(.+)/);
-          if (m)
-            current.trend = m[1].trim().replace(/^['"]|['"]$/g, "");
-        }
-      }
-    }
-    if (current && current.label)
-      kpis.push({ label: current.label, value: current.value ?? "", trend: current.trend ?? "" });
+function renderAnimated(input, doc, warnings) {
+  const mode = doc.frontmatter.animations;
+  const lang = doc.frontmatter.lang ?? "zh";
+  const version2 = "2.0.0";
+  const normalizedIr = input.irContent.trim() ? input.irContent.trim() + "\n" : "";
+  const irHash = createHash("sha256").update(normalizedIr).digest("hex").slice(0, 16);
+  const primaryColor = doc.frontmatter.theme_overrides?.["primary_color"] ?? doc.frontmatter.theme_overrides?.["--primary"] ?? "#5842EA";
+  if (doc.frontmatter.cover === "hero") {
+    warnings.push("contract_conflict: cover: hero cannot combine with animated render modes \u2014 cover dropped");
   }
-  return kpis.slice(0, 6);
+  const ctx = { doc, mode, lang, version: version2, irHash, primaryColor, warnings };
+  const html = mode === "scrollytelling" ? buildScrollytelling(ctx) : buildIridescence(ctx);
+  const hasIrHash = /meta\s+name="ir-hash"\s+content="[^"]+"/i.test(html);
+  const visibleText = html.replace(/<script\b[\s\S]*?<\/script>/gi, "").replace(/<style\b[\s\S]*?<\/style>/gi, "").replace(/<[^>]+>/g, "\n");
+  const l0 = !visibleText.split("\n").some((line) => line.trim().includes(":::")) && hasIrHash;
+  const l1 = html.includes("<!DOCTYPE html>") && html.includes('data-template="kai-report-creator"');
+  const { chromeFindings, kpiFindings } = validateAnimatedOutput(html, mode, version2);
+  const l2 = chromeFindings.length === 0;
+  const l3 = kpiFindings.length === 0;
+  if (!l0)
+    warnings.push("L0 validation failed: possible ::: leakage or missing ir-hash");
+  if (!l2)
+    for (const f of chromeFindings)
+      warnings.push(`animated: ${f}`);
+  if (!l3)
+    warnings.push(`L3 validation failed: ${kpiFindings.join("; ")}`);
+  const outputPath = input.outputPath ?? `report-${doc.frontmatter.date || "output"}.html`;
+  try {
+    writeFileSync(outputPath, html, "utf-8");
+  } catch (e) {
+    warnings.push(`Failed to write file: ${e.message}`);
+  }
+  return {
+    success: l0 && l1 && l2 && l3,
+    outputPath,
+    html,
+    validation: { l0, l1, l2, l3 },
+    warnings,
+    stats: {
+      sections: doc.sections.length,
+      components: doc.blocks.length,
+      cssBytes: 0,
+      htmlBytes: html.length
+    }
+  };
 }
 
 // dist/tools/render-report.js
@@ -34226,7 +35630,7 @@ function renderBlockForPreview(block, options) {
 
 // dist/server.js
 function buildServer() {
-  const server = new McpServer({ name: "report-renderer", version: "2.1.1" }, { capabilities: { tools: {} } });
+  const server = new McpServer({ name: "report-renderer", version: "2.2.0" }, { capabilities: { tools: {} } });
   server.registerTool("validate_ir", {
     description: "Validate a .report.md IR file for syntax and semantic correctness",
     inputSchema: external_exports.object({

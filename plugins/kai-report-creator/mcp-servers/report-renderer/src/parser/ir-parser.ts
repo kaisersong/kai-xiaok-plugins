@@ -23,6 +23,7 @@ export interface IRDocument {
   sections: IRSection[];
   blocks: IRBlock[];
   rawBody: string;
+  coverBody: string | null;
 }
 
 const STRUCTURAL_DIRECTIVES = new Set(['cover', 'toc', 'section']);
@@ -44,7 +45,28 @@ export function parseDocument(source: string): IRDocument {
     sections,
     blocks,
     rawBody,
+    coverBody: extractCoverBody(rawBody),
   };
+}
+
+/**
+ * Extract the :::cover fence body (at most one, expected before every ##
+ * heading). Returns null when the report has no cover fence.
+ */
+function extractCoverBody(body: string): string | null {
+  const lines = body.split('\n');
+  for (let i = 0; i < lines.length; i++) {
+    const open = lines[i]!.match(/^:::\s*cover\s*$/);
+    if (!open) continue;
+    const bodyLines: string[] = [];
+    let j = i + 1;
+    while (j < lines.length && lines[j]!.trim() !== ':::') {
+      bodyLines.push(lines[j]!);
+      j++;
+    }
+    return bodyLines.join('\n');
+  }
+  return null;
 }
 
 /**

@@ -20,6 +20,7 @@ export interface IRDocument {
     sections: IRSection[];
     blocks: IRBlock[];
     rawBody: string;
+    coverBody: string | null;
 }
 /**
  * Parse a .report.md IR source into a structured document.

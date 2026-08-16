@@ -5,6 +5,21 @@ import { parseDocument, type IRDocument, type IRBlock } from '../parser/ir-parse
 import { escHtml, escHtmlPreserveInline, escHtmlText } from './escape.js';
 import { loadTheme, assembleCSS } from '../themes/loader.js';
 import { buildHtmlShell, type ShellOptions } from './shell.js';
+import {
+  isAnimatedMode,
+  shouldRenderCover,
+  splitAccentPhrase,
+  parseCoverBody,
+  normaliseCover,
+  renderCoverSection,
+} from './cover.js';
+import {
+  extractKpis,
+  validateAnimatedOutput,
+  type AnimatedMode,
+} from './animated/common.js';
+import { buildScrollytelling } from './animated/scrollytelling.js';
+import { buildIridescence } from './animated/iridescence.js';
 import { renderKpi } from './components/kpi.js';
 import { renderTable } from './components/table.js';
 import { renderCallout } from './components/callout.js';
@@ -43,6 +58,12 @@ export function renderReport(input: RenderInput): RenderResult {
     warnings.push(...doc.frontmatterWarnings);
   }
 
+  // Animated render modes replace the standard shell entirely
+  if (isAnimatedMode(doc.frontmatter.animations)) {
+    return renderAnimated(input, doc, warnings);
+  }
+
+
   const themeName = input.themeOverride ?? doc.frontmatter.theme;
   const theme = loadTheme(themeName);
   const css = assembleCSS(theme, doc.frontmatter.theme_overrides);
@@ -51,6 +72,26 @@ export function renderReport(input: RenderInput): RenderResult {
   const toc = doc.frontmatter.toc !== false;
 
   const renderOpts: RenderOptions = { theme: themeName, lang, animations };
+
+  // Cover (hero): rendered when `cover: hero` is set, or always for
+  // forest-editorial (the theme ships a cover-first layout).
+  const titleAccent = splitAccentPhrase(doc.frontmatter.title || 'Report');
+  const titlePlain = titleAccent.plain;
+  const coverEnabled = !isAnimatedMode(doc.frontmatter.animations)
+    && shouldRenderCover(doc.frontmatter.cover, themeName);
+  const coverHtml = coverEnabled
+    ? renderCoverSection({
+        cover: normaliseCover(parseCoverBody(doc.coverBody ?? ''), warnings),
+        titleHtml: titleAccent.html,
+        abstract: doc.frontmatter.abstract ?? '',
+        author: doc.frontmatter.author ?? '',
+        date: doc.frontmatter.date ?? '',
+        lang,
+      })
+    : undefined;
+  if (coverEnabled && doc.coverBody === null && doc.frontmatter.cover === 'hero') {
+    warnings.push('cover: hero requested but no :::cover fence found; rendering cover from frontmatter only');
+  }
 
   // Detect CDN needs
   const needsEcharts = doc.blocks.some(b => b.tag === 'chart');
@@ -194,9 +235,9 @@ export function renderReport(input: RenderInput): RenderResult {
     bodyParts.push(`        </section>`);
   }
 
-  // Build report-summary JSON
+  // Build report-summary JSON (plain title — no [[accent]] markup)
   const reportSummary = {
-    title: doc.frontmatter.title,
+    title: titlePlain,
     theme: themeName,
     lang,
     date: doc.frontmatter.date ?? '',
@@ -220,14 +261,14 @@ export function renderReport(input: RenderInput): RenderResult {
   }));
 
   const shellOpts: ShellOptions = {
-    title: doc.frontmatter.title || 'Report',
+    title: titlePlain,
     theme: themeName,
     lang,
     css,
     needsEcharts,
     needsHighlightjs,
     toc,
-    animations,
+    animations: !isAnimatedMode(doc.frontmatter.animations),
     irHash,
     reportSummaryJson: JSON.stringify(reportSummary),
     bodyContent: bodyParts.join('\n'),
@@ -236,7 +277,9 @@ export function renderReport(input: RenderInput): RenderResult {
     date: doc.frontmatter.date ?? '',
     abstract: doc.frontmatter.abstract ?? '',
     version: '2.0.0',
-    frontmatter: doc.frontmatter,
+    // JSON-LD also uses the plain title form
+    frontmatter: { ...doc.frontmatter, title: titlePlain },
+    coverHtml,
   };
 
   const html = buildHtmlShell(shellOpts);
@@ -245,7 +288,10 @@ export function renderReport(input: RenderInput): RenderResult {
   const validation = validateOutput(html);
   if (!validation.l0) warnings.push('L0 validation failed: possible ::: leakage or missing ir-hash');
   if (!validation.l1) warnings.push('L1 validation failed: shell structure incomplete');
-  if (!validation.l2) warnings.push('L2 validation failed: missing required IDs');
+  if (!validation.l2) {
+    warnings.push('L2 validation failed: missing required IDs');
+    for (const f of validation.coverFindings) warnings.push(`cover: ${f}`);
+  }
   if (!validation.l3) warnings.push(`L3 validation failed: ${validation.qualityFindings.join('; ')}`);
 
   // Write file
@@ -324,7 +370,7 @@ function renderBlock(block: IRBlock, options: RenderOptions): string {
 }
 
 // HTML output validation
-interface ValidationResult { l0: boolean; l1: boolean; l2: boolean; l3: boolean; qualityFindings: string[] }
+interface ValidationResult { l0: boolean; l1: boolean; l2: boolean; l3: boolean; qualityFindings: string[]; coverFindings: string[] }
 
 function validateOutput(html: string): ValidationResult {
   // L0: No ::: leakage, ir-hash exists
@@ -353,10 +399,82 @@ function validateOutput(html: string): ValidationResult {
     'export-im-share', 'report-summary',
   ];
   const l2 = requiredIds.every(id => html.includes(`id="${id}"`));
+  const coverFindings = validateCoverStructure(html);
+  const l2Cover = coverFindings.length === 0;
   const qualityFindings = validateKpiValues(html);
   const l3 = qualityFindings.length === 0;
 
-  return { l0: l0Pass, l1, l2, l3, qualityFindings };
+  return { l0: l0Pass, l1, l2: l2 && l2Cover, l3, qualityFindings, coverFindings };
+}
+
+/**
+ * Cover structure rules, ported from report-creator scripts/html_quality_gate.py:
+ * exactly one <h1> (inside #report-cover), cover is a sibling BEFORE
+ * .report-wrapper, cards 0 or 3 with at most one accent, ≤ 4 chips,
+ * watermark aria-hidden, single #card-mode-btn inside the cover,
+ * no literal [[ ]] residue.
+ */
+function validateCoverStructure(html: string): string[] {
+  const findings: string[] = [];
+  const theme = /data-theme="([^"]+)"/.exec(html)?.[1] ?? '';
+  const mode = /data-cover="([^"]+)"/.exec(html)?.[1];
+
+  if (theme === 'forest-editorial' && mode !== 'hero') {
+    findings.push('forest-editorial implies a cover; <html> needs data-cover="hero"');
+  }
+  if (mode !== 'hero') return findings;
+
+  // Strip scripts/styles so inner JS/CSS strings cannot fake markup
+  const markup = html
+    .replace(/<script\b[\s\S]*?<\/script>/gi, '')
+    .replace(/<style\b[\s\S]*?<\/style>/gi, '');
+
+  const coverStart = markup.indexOf('id="report-cover"');
+  if (coverStart === -1) {
+    findings.push('data-cover="hero" but no id="report-cover" element');
+    return findings;
+  }
+  const coverEnd = markup.indexOf('</section>', coverStart);
+  const coverSlice = markup.slice(coverStart, coverEnd === -1 ? undefined : coverEnd);
+  const wrapperStart = markup.indexOf('class="report-wrapper"');
+
+  if (coverStart > wrapperStart && wrapperStart !== -1) {
+    findings.push('#report-cover must be a sibling before .report-wrapper');
+  }
+
+  const h1Total = (markup.match(/<h1[\s>]/g) ?? []).length;
+  if (h1Total !== 1) {
+    findings.push(`exactly one <h1> expected, found ${h1Total}`);
+  } else if (!/<h1[\s>]/.test(coverSlice)) {
+    findings.push('the single <h1> must live inside #report-cover');
+  }
+
+  const cards = (coverSlice.match(/class="cover-card"/g) ?? []).length;
+  if (cards !== 0 && cards !== 3) findings.push(`.cover-card count must be 0 or 3, found ${cards}`);
+  const accents = (coverSlice.match(/data-accent=/g) ?? []).length;
+  if (accents > 1) findings.push(`at most one accent card, found ${accents}`);
+
+  const chips = (coverSlice.match(/class="cover-chip"/g) ?? []).length;
+  if (chips > 4) findings.push(`at most 4 chips, found ${chips}`);
+
+  if (/class="cover-watermark"(?![^>]*aria-hidden="true")/.test(coverSlice)) {
+    findings.push('.cover-watermark needs aria-hidden="true"');
+  }
+
+  const cardBtns = (markup.match(/id="card-mode-btn"/g) ?? []).length;
+  if (cardBtns !== 1) {
+    findings.push(`exactly one #card-mode-btn expected, found ${cardBtns}`);
+  } else if (!coverSlice.includes('id="card-mode-btn"')) {
+    findings.push('the #card-mode-btn must live inside #report-cover');
+  }
+
+  const titleText = /<title>([\s\S]*?)<\/title>/.exec(markup)?.[1] ?? '';
+  const coverText = coverSlice.replace(/<[^>]+>/g, '');
+  if (coverText.includes('[[') || coverText.includes(']]') || titleText.includes('[[') || titleText.includes(']]')) {
+    findings.push('literal [[ or ]] survived into the rendered HTML');
+  }
+
+  return findings;
 }
 
 const PLACEHOLDER_RE = /\[(?:INSERT VALUE|数据待填写)\]/;
@@ -398,24 +516,66 @@ function validateKpiValues(html: string): string[] {
   return findings;
 }
 
-function extractKpis(doc: IRDocument): Array<{ label: string; value: string; trend: string }> {
-  const kpis: Array<{ label: string; value: string; trend: string }> = [];
-  for (const block of doc.blocks) {
-    if (block.tag !== 'kpi') continue;
-    const lines = block.body.split('\n');
-    let current: { label?: string; value?: string; trend?: string } | null = null;
-    for (const line of lines) {
-      const t = line.trim();
-      if (t.startsWith('- label:') || t.startsWith('-label:')) {
-        if (current && current.label) kpis.push({ label: current.label, value: current.value ?? '', trend: current.trend ?? '' });
-        const m = t.match(/label:\s*(.+)/);
-        current = { label: m ? m[1]!.trim().replace(/^['"]|['"]$/g, '') : '' };
-      } else if (current) {
-        if (t.startsWith('value:')) { const m = t.match(/value:\s*(.+)/); if (m) current.value = m[1]!.trim().replace(/^['"]|['"]$/g, ''); }
-        if (t.startsWith('trend:')) { const m = t.match(/trend:\s*(.+)/); if (m) current.trend = m[1]!.trim().replace(/^['"]|['"]$/g, ''); }
-      }
-    }
-    if (current && current.label) kpis.push({ label: current.label, value: current.value ?? '', trend: current.trend ?? '' });
+/**
+ * Animated render modes (scrollytelling / iridescence): the standard shell,
+ * theme CSS, TOC/card/edit chrome and ECharts do NOT apply. Output carries
+ * its own contract (data-render-mode, chrome IDs, pinned CDN allow-list or
+ * zero-CDN, summary KPI rules) validated by validateAnimatedOutput.
+ */
+function renderAnimated(input: RenderInput, doc: IRDocument, warnings: string[]): RenderResult {
+  const mode = doc.frontmatter.animations as AnimatedMode;
+  const lang = doc.frontmatter.lang ?? 'zh';
+  const version = '2.0.0';
+  const normalizedIr = input.irContent.trim() ? input.irContent.trim() + '\n' : '';
+  const irHash = createHash('sha256').update(normalizedIr).digest('hex').slice(0, 16);
+  const primaryColor = doc.frontmatter.theme_overrides?.['primary_color']
+    ?? doc.frontmatter.theme_overrides?.['--primary']
+    ?? '#5842EA';
+
+  if (doc.frontmatter.cover === 'hero') {
+    warnings.push('contract_conflict: cover: hero cannot combine with animated render modes — cover dropped');
   }
-  return kpis.slice(0, 6);
+
+  const ctx = { doc, mode, lang, version, irHash, primaryColor, warnings };
+  const html = mode === 'scrollytelling' ? buildScrollytelling(ctx) : buildIridescence(ctx);
+
+  // L0: no ::: leakage, ir-hash present (same rule as the standard shell)
+  const hasIrHash = /meta\s+name="ir-hash"\s+content="[^"]+"/i.test(html);
+  const visibleText = html
+    .replace(/<script\b[\s\S]*?<\/script>/gi, '')
+    .replace(/<style\b[\s\S]*?<\/style>/gi, '')
+    .replace(/<[^>]+>/g, '\n');
+  const l0 = !visibleText.split('\n').some(line => line.trim().includes(':::')) && hasIrHash;
+
+  const l1 = html.includes('<!DOCTYPE html>') && html.includes('data-template="kai-report-creator"');
+
+  const { chromeFindings, kpiFindings } = validateAnimatedOutput(html, mode, version);
+  const l2 = chromeFindings.length === 0;
+  const l3 = kpiFindings.length === 0;
+
+  if (!l0) warnings.push('L0 validation failed: possible ::: leakage or missing ir-hash');
+  if (!l2) for (const f of chromeFindings) warnings.push(`animated: ${f}`);
+  if (!l3) warnings.push(`L3 validation failed: ${kpiFindings.join('; ')}`);
+
+  const outputPath = input.outputPath ?? `report-${doc.frontmatter.date || 'output'}.html`;
+  try {
+    writeFileSync(outputPath, html, 'utf-8');
+  } catch (e) {
+    warnings.push(`Failed to write file: ${(e as Error).message}`);
+  }
+
+  return {
+    success: l0 && l1 && l2 && l3,
+    outputPath,
+    html,
+    validation: { l0, l1, l2, l3 },
+    warnings,
+    stats: {
+      sections: doc.sections.length,
+      components: doc.blocks.length,
+      cssBytes: 0,
+      htmlBytes: html.length,
+    },
+  };
 }
+

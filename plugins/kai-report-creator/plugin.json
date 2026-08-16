@@ -1,12 +1,12 @@
 {
   "name": "kai-report-creator",
-  "version": "2.2.0",
+  "version": "2.3.0",
   "interface": {
     "display_name": "报告生成器",
-    "short_description": "高质量 HTML 报告，零依赖单文件，9 套主题",
+    "short_description": "高质量 HTML 报告，零依赖单文件，9 套主题，支持 hero 封面与动效模式",
     "category": "content-creation",
-    "capabilities": ["report-planning", "html-rendering", "theme-system"],
-    "keywords": ["report", "html", "chart", "kpi", "dashboard"]
+    "capabilities": ["report-planning", "html-rendering", "theme-system", "hero-cover", "animated-modes"],
+    "keywords": ["report", "html", "chart", "kpi", "dashboard", "cover", "scrollytelling", "iridescence"]
   },
   "skills": ["skills/report-planner"],
   "mcpServers": [

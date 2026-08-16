@@ -6,7 +6,7 @@ import { handleListThemes } from './tools/list-themes.js';
 import { handleRenderReport } from './tools/render-report.js';
 import { handlePreviewSection } from './tools/preview-section.js';
 export function buildServer() {
-    const server = new McpServer({ name: 'report-renderer', version: '2.1.1' }, { capabilities: { tools: {} } });
+    const server = new McpServer({ name: 'report-renderer', version: '2.2.0' }, { capabilities: { tools: {} } });
     server.registerTool('validate_ir', {
         description: 'Validate a .report.md IR file for syntax and semantic correctness',
         inputSchema: z.object({

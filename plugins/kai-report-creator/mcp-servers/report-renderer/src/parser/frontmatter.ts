@@ -13,7 +13,8 @@ export interface IRFrontmatter {
   must_avoid?: string[];
   charts?: 'cdn' | 'bundle';
   toc?: boolean;
-  animations?: boolean;
+  animations?: boolean | string;
+  cover?: string;
   abstract?: string;
   author?: string;
   poster_title?: string;
@@ -109,7 +110,11 @@ export function parseFrontmatter(source: string): FrontmatterParseResult {
   if (parsed['must_avoid']) fm.must_avoid = toStringArray(parsed['must_avoid']);
   if (parsed['charts']) fm.charts = str(parsed['charts'], 'cdn') as 'cdn' | 'bundle';
   if (parsed['toc'] !== undefined) fm.toc = Boolean(parsed['toc']);
-  if (parsed['animations'] !== undefined) fm.animations = Boolean(parsed['animations']);
+  if (parsed['animations'] !== undefined) {
+    const anim = parsed['animations'];
+    fm.animations = typeof anim === 'boolean' ? anim : str(anim, '');
+  }
+  if (parsed['cover']) fm.cover = str(parsed['cover'], '');
   if (parsed['abstract']) fm.abstract = str(parsed['abstract'], '');
   if (parsed['author']) fm.author = str(parsed['author'], '');
   if (parsed['poster_title']) fm.poster_title = str(parsed['poster_title'], '');
@@ -127,6 +132,16 @@ export function parseFrontmatter(source: string): FrontmatterParseResult {
   if (!fm.title) warnings.push('Missing required field: title');
   if (!VALID_THEMES.includes(fm.theme) && !fm.theme.startsWith('custom-')) {
     warnings.push(`Unknown theme "${fm.theme}", expected one of: ${VALID_THEMES.join(', ')}`);
+  }
+  const ANIMATED_MODES = ['scrollytelling', 'iridescence'];
+  if (typeof fm.animations === 'string' && !ANIMATED_MODES.includes(fm.animations)) {
+    warnings.push(`Invalid animations "${fm.animations}", expected boolean or one of: ${ANIMATED_MODES.join(', ')} — treated as true`);
+  }
+  if (fm.cover && fm.cover !== 'hero') {
+    warnings.push(`Invalid cover "${fm.cover}", expected "hero" — ignored`);
+  }
+  if (fm.cover === 'hero' && typeof fm.animations === 'string' && ANIMATED_MODES.includes(fm.animations)) {
+    warnings.push(`contract_conflict: cover: hero cannot combine with animations: ${fm.animations}`);
   }
   if (!VALID_REPORT_CLASSES.includes(fm.report_class)) {
     warnings.push(`Invalid report_class "${fm.report_class}", expected: ${VALID_REPORT_CLASSES.join(', ')}`);

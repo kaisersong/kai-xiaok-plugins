@@ -8,7 +8,7 @@ import { handlePreviewSection } from './tools/preview-section.js';
 
 export function buildServer(): McpServer {
   const server = new McpServer(
-    { name: 'report-renderer', version: '2.1.1' },
+    { name: 'report-renderer', version: '2.2.0' },
     { capabilities: { tools: {} } },
   );
 
