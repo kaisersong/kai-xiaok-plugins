@@ -23,7 +23,7 @@
         "darwin"
       ],
       "source": {
-        "commit": "e4036b9453f4c9e86c73410e3b091bd496e5be35",
+        "commit": "d7dd2dca5018b89a126f6d74633b38778e9952f1",
         "treeSha256": "2e9dbd792ab290667b3c10bf81651b1873e92d4c03b4c7ea3a561717e986ae18"
       },
       "install": {
@@ -61,7 +61,7 @@
         "win32"
       ],
       "source": {
-        "commit": "e4036b9453f4c9e86c73410e3b091bd496e5be35",
+        "commit": "d7dd2dca5018b89a126f6d74633b38778e9952f1",
         "treeSha256": "abcfab7cd80615a4c856c61482469d214c8cc6aa6c216d6671590cd427f7450c"
       },
       "install": {
@@ -98,7 +98,7 @@
       "path": "plugins/kai-meeting-assistant",
       "version": "0.1.0",
       "source": {
-        "commit": "e4036b9453f4c9e86c73410e3b091bd496e5be35",
+        "commit": "d7dd2dca5018b89a126f6d74633b38778e9952f1",
         "treeSha256": "c69f513fe2e754d81ab6f1daa57cb5b021cf8b015da12e2b4bad4da45fb6ca7c"
       },
       "install": {
@@ -130,10 +130,10 @@
       ],
       "repo": "kaisersong/kai-xiaok-plugins",
       "path": "plugins/kai-report-creator",
-      "version": "2.2.0",
+      "version": "2.3.0",
       "source": {
-        "commit": "e4036b9453f4c9e86c73410e3b091bd496e5be35",
-        "treeSha256": "8183b0e5168ea521612c4b8cf866f337f689521938299c5dd1f3a1495a61bb26"
+        "commit": "d7dd2dca5018b89a126f6d74633b38778e9952f1",
+        "treeSha256": "6eedfa5cfdb765062e0aab16e31f0b7a289634ded5bfe486fa61cf286b628bab"
       },
       "install": {
         "steps": [
@@ -167,7 +167,7 @@
       "path": "plugins/kai-slide-creator",
       "version": "3.3.0",
       "source": {
-        "commit": "e4036b9453f4c9e86c73410e3b091bd496e5be35",
+        "commit": "d7dd2dca5018b89a126f6d74633b38778e9952f1",
         "treeSha256": "15287fc15f50bf8273fbc465990551a95feaab3028783cf2209ce54413b73db4"
       },
       "install": {
