@@ -18,13 +18,13 @@
       ],
       "repo": "kaisersong/kai-xiaok-plugins",
       "path": "plugins/cua-computer-use",
-      "version": "0.2.0",
+      "version": "0.2.1",
       "platforms": [
         "darwin"
       ],
       "source": {
-        "commit": "642c2b3b12652baea44185eced35414efc3473eb",
-        "treeSha256": "96690b21d91ac4c3bae82c82b8d55379a1bf7f45e2b7ba07ef3f7b27dbdeb59f"
+        "commit": "e4036b9453f4c9e86c73410e3b091bd496e5be35",
+        "treeSha256": "2e9dbd792ab290667b3c10bf81651b1873e92d4c03b4c7ea3a561717e986ae18"
       },
       "install": {
         "steps": [
@@ -61,7 +61,7 @@
         "win32"
       ],
       "source": {
-        "commit": "642c2b3b12652baea44185eced35414efc3473eb",
+        "commit": "e4036b9453f4c9e86c73410e3b091bd496e5be35",
         "treeSha256": "abcfab7cd80615a4c856c61482469d214c8cc6aa6c216d6671590cd427f7450c"
       },
       "install": {
@@ -98,8 +98,8 @@
       "path": "plugins/kai-meeting-assistant",
       "version": "0.1.0",
       "source": {
-        "commit": "642c2b3b12652baea44185eced35414efc3473eb",
-        "treeSha256": "882adb8ab4137aa68f7cc83552f74affa3f11a391d904737b4d75fa6f2ca319d"
+        "commit": "e4036b9453f4c9e86c73410e3b091bd496e5be35",
+        "treeSha256": "c69f513fe2e754d81ab6f1daa57cb5b021cf8b015da12e2b4bad4da45fb6ca7c"
       },
       "install": {
         "steps": [
@@ -130,10 +130,10 @@
       ],
       "repo": "kaisersong/kai-xiaok-plugins",
       "path": "plugins/kai-report-creator",
-      "version": "2.1.0",
+      "version": "2.2.0",
       "source": {
-        "commit": "642c2b3b12652baea44185eced35414efc3473eb",
-        "treeSha256": "85e488af46b3b0d1dfbb609fcf3b8b0f7cbf8a78a99d5724bb7b462735117ef8"
+        "commit": "e4036b9453f4c9e86c73410e3b091bd496e5be35",
+        "treeSha256": "8183b0e5168ea521612c4b8cf866f337f689521938299c5dd1f3a1495a61bb26"
       },
       "install": {
         "steps": [
@@ -165,10 +165,10 @@
       ],
       "repo": "kaisersong/kai-xiaok-plugins",
       "path": "plugins/kai-slide-creator",
-      "version": "3.2.1",
+      "version": "3.3.0",
       "source": {
-        "commit": "642c2b3b12652baea44185eced35414efc3473eb",
-        "treeSha256": "195bfb642dd65c39d4b6fd08d64f3ef0a77f617d603c223eedb9b17e79c7d4bf"
+        "commit": "e4036b9453f4c9e86c73410e3b091bd496e5be35",
+        "treeSha256": "15287fc15f50bf8273fbc465990551a95feaab3028783cf2209ce54413b73db4"
       },
       "install": {
         "steps": [
