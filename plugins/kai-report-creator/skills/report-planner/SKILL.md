@@ -1,7 +1,7 @@
 ---
 name: kai-report-creator
 description: Use when the user wants to CREATE or GENERATE a report, business summary, data dashboard, or research doc. Handles Chinese and English. The model generates IR (.report.md) and delegates rendering to the MCP report-renderer server.
-version: 2.0.0
+version: 2.1.0
 user-invocable: true
 metadata: {"openclaw": {"emoji": "📊"}}
 ---
@@ -92,6 +92,7 @@ Prose text between blocks.
 - `newspaper` — Print-inspired serif layout
 - `regular-lumen` — Warm editorial consulting layout
 - `fangsong` — Chinese fangsong editorial layout
+- `forest-editorial` — 米绿纸感编辑风：浅色纸底 + 深林绿锚区 + 金橙点缀，大圆角卡片。适合复盘/总结/提案类报告。图表配色：`#0b6b55 #c7951d #de6d40 #4e6a9f #93a098`（ECharts 不读 CSS 变量，需在 chart IR 中显式指定）
 
 ## MCP Tool Reference
 

@@ -115,8 +115,8 @@ def test_render_slide_contains_required_markers():
     assert result.success is True, result.errors
     required_markers = [
         'data-generator="kai-slide-creator"',
-        'data-generator-version="3.2.2"',
-        'By kai-slide-creator v3.2.2 · Data Story',
+        'data-generator-version="3.3.0"',
+        'By kai-slide-creator v3.3.0 · Data Story',
         'data-render-path="',
         'data-brief-hash="',
     ]

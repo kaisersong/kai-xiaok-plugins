@@ -14,7 +14,7 @@ export interface ThemeCSS {
 const BUILTIN_THEMES = [
   'corporate-blue', 'minimal', 'dark-tech',
   'dark-board', 'data-story', 'newspaper',
-  'regular-lumen', 'fangsong',
+  'regular-lumen', 'fangsong', 'forest-editorial',
 ];
 
 const cache = new Map<string, ThemeCSS>();

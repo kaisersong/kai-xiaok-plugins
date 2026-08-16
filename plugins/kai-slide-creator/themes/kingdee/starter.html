@@ -614,6 +614,46 @@
     object-fit: contain;
     z-index: 5;
 }
+
+/* Notes panel / 备注面板（默认隐藏，N 键唤出） */
+#notes-panel {
+    display: none;
+    position: fixed;
+    right: 18px;
+    bottom: 18px;
+    width: min(380px, 36vw);
+    max-height: 40vh;
+    overflow: auto;
+    z-index: 9996;
+    background: rgba(255, 255, 255, 0.96);
+    color: #1F2329;
+    border: 1px solid rgba(41, 113, 235, 0.22);
+    box-shadow: 0 14px 40px rgba(15, 42, 84, 0.18);
+}
+#notes-panel.active { display: block; }
+#notes-panel.collapsed #notes-body { display: none; }
+#notes-panel-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 14px;
+    cursor: pointer;
+    user-select: none;
+    border-bottom: 1px solid rgba(41, 113, 235, 0.14);
+}
+#notes-panel-label {
+    flex: 1;
+    font-size: 10px;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: #2971EB;
+}
+#notes-body {
+    padding: 10px 14px 14px;
+    font-size: 12px;
+    line-height: 1.7;
+    color: #4A5266;
+}
 </style>
 </head>
 <!-- kai-html-export: data-export-progress="false" 表示导出 PPTX 时不包含导航装饰（圆点、进度条），
@@ -741,14 +781,12 @@
         // Slide visibility observer
         const slides = document.querySelectorAll('.slide');
         const dots = document.querySelectorAll('.nav-dot');
-        let currentIndex = 0;
 
         const observer = new IntersectionObserver((entries) => {
             entries.forEach(entry => {
                 if (entry.isIntersecting) {
                     entry.target.classList.add('visible');
                     const index = Array.from(slides).indexOf(entry.target);
-                    currentIndex = index;
                     dots.forEach((dot, i) => {
                         dot.classList.toggle('active', i === index);
                     });
@@ -768,6 +806,7 @@
 
         // Keyboard navigation
         document.addEventListener('keydown', (e) => {
+            const currentIndex = Array.from(slides).findIndex(s => s.classList.contains('visible'));
             if (e.key === 'ArrowRight' || e.key === 'ArrowDown' || e.key === ' ') {
                 e.preventDefault();
                 const next = Math.min(currentIndex + 1, slides.length - 1);

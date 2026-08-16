@@ -37,6 +37,24 @@ export function handleListThemes() {
                 palette: 'light',
                 recommended_for: ['newsletter', 'editorial', 'weekly digest'],
             },
+            {
+                name: 'regular-lumen',
+                description: '周期性汇报风格，暖光编辑部排版',
+                palette: 'light',
+                recommended_for: ['weekly report', 'daily report', 'monthly report', 'work progress'],
+            },
+            {
+                name: 'fangsong',
+                description: '中文仿宋公文体，正式行文风格',
+                palette: 'light',
+                recommended_for: ['official notice', 'formal document', 'policy', '公文'],
+            },
+            {
+                name: 'forest-editorial',
+                description: '米绿纸感编辑风，深林绿锚区 + 金橙点缀，大圆角纸面卡片',
+                palette: 'light',
+                recommended_for: ['retrospective', 'work summary', 'proposal', '复盘/总结/提案'],
+            },
         ],
     };
 }

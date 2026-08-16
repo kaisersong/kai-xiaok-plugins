@@ -134,6 +134,7 @@ LABEL_SELECTORS = (
     ".hero-brand",
     ".brute-tag",
     ".badge",
+    ".sc-source",
 )
 
 ITEM_TITLE_SELECTORS = (
@@ -148,6 +149,12 @@ ITEM_TITLE_SELECTORS = (
     ".stat-label",
     ".metric-label",
     ".cmd-name",
+    ".sc-metric-label",
+    ".sc-thing-title",
+    ".sc-driver-child-title",
+    ".sc-panel-label",
+    ".sc-funnel-label",
+    ".sc-matrix-cell > div:first-child",
     "h3",
 )
 
@@ -162,6 +169,10 @@ ITEM_BODY_SELECTORS = (
     ".stat-sub",
     ".metric-body",
     ".cmd-desc",
+    ".sc-thing-body",
+    ".sc-driver-child-body",
+    ".sc-evidence-card p",
+    ".sc-matrix-cell > div:nth-child(2)",
 )
 
 NUMBER_SELECTORS = (
@@ -172,6 +183,18 @@ NUMBER_SELECTORS = (
     ".stat-value",
     ".metric-num-pink",
     ".num",
+    ".sc-metric",
+    ".sc-funnel-value",
+)
+
+# Demo-derived templates carry preset-specific narrative slots that are not plain
+# title/body/label nodes. Without explicit hydration they leak the checked-in demo
+# copy into user decks (e.g. Strategy Consulting recommendation boxes and pull
+# quotes). Each entry maps a selector to the spec field that should fill it.
+NARRATIVE_SLOT_SELECTORS: tuple[tuple[str, str, int], ...] = (
+    (".sc-reco-box", "claim", 150),
+    (".sc-quote-text", "claim", 170),
+    (".sc-quote-attribution", "key_point", 60),
 )
 
 READABLE_PROFILE_INK = {
@@ -1215,6 +1238,73 @@ body[data-renderer-strategy="unified_profile"][data-profile-spec="neo-brutalism"
     line-height: 1.16 !important;
     max-width: min(92vw, 760px) !important;
 }}
+/* Short laptop windows.
+   A real laptop browser window leaves roughly 730-860px of usable height once the menu bar,
+   tab strip and dock are subtracted. Profile layouts fit at 900px and clip at 733px, so
+   compact the vertical rhythm instead of losing rows. Play mode is unaffected: it pins
+   slides to a fixed 1440x900 box. */
+@media (max-height: 860px) {{
+    body[data-renderer-strategy="unified_profile"] .slide {{
+        padding-top: clamp(16px, 2.4vh, 34px) !important;
+        padding-bottom: clamp(16px, 2.4vh, 34px) !important;
+    }}
+    body[data-renderer-strategy="unified_profile"] .profile-content,
+    body[data-renderer-strategy="unified_profile"] .slide-content,
+    body[data-renderer-strategy="unified_profile"] .content,
+    body[data-renderer-strategy="unified_profile"] .content-wrapper {{
+        gap: clamp(6px, 1.1vh, 14px) !important;
+    }}
+    body[data-renderer-strategy="unified_profile"] :is(
+        .elec-stat,
+        .stat-block,
+        .feat-card,
+        .glass-card,
+        .np-block,
+        .pain-card,
+        .step-editorial
+    ) {{
+        padding-top: min(1vh, 14px) !important;
+        padding-bottom: min(1vh, 14px) !important;
+    }}
+    body[data-renderer-strategy="unified_profile"] :is(.elec-stat-number, .stat-number) {{
+        /* Display numerals need a line box tall enough for their own glyphs: an inline span
+           with line-height < 1.15 leaks below its parent and gets cropped by the slide box.
+           On short windows the numeral also has to scale with the available height. */
+        display: block !important;
+        font-size: min(8.2vh, 96px) !important;
+        line-height: 1.12 !important;
+    }}
+    body[data-renderer-strategy="unified_profile"] .stat-group {{
+        gap: clamp(6px, 1.4vh, 20px) !important;
+    }}
+    body[data-renderer-strategy="unified_profile"] :is(ul, ol) :is(li, li.plus) {{
+        margin-top: 0 !important;
+        margin-bottom: clamp(2px, 0.5vh, 7px) !important;
+    }}
+    body[data-renderer-strategy="unified_profile"] :is(
+        .ba-panel,
+        .ba-list,
+        .cards-grid,
+        .metrics-grid,
+        .cmd-table,
+        .steps,
+        .feat-grid
+    ) {{
+        gap: clamp(4px, 0.7vh, 10px) !important;
+    }}
+    body[data-renderer-strategy="unified_profile"] .ba-panel {{
+        padding: clamp(8px, 1.2vh, 16px) clamp(12px, 1.4vw, 20px) !important;
+    }}
+    body[data-renderer-strategy="unified_profile"] :is(.ba-list li, .ba-header, .cmd-table td, .cmd-table th) {{
+        padding-top: clamp(3px, 0.5vh, 7px) !important;
+        padding-bottom: clamp(3px, 0.5vh, 7px) !important;
+    }}
+    body[data-renderer-strategy="unified_profile"][data-profile-spec="electric-studio"] :is(.left-panel, .right-panel) {{
+        padding-top: min(4vh, 44px) !important;
+        padding-bottom: min(4vh, 44px) !important;
+    }}
+}}
+
 @media (max-width: 1300px) {{
     body[data-renderer-strategy="unified_profile"][data-profile-spec="creative-voltage"] h2.reveal,
     body[data-renderer-strategy="unified_profile"][data-profile-spec="modern-newspaper"] .np-headline {{
@@ -1437,6 +1527,42 @@ body[data-renderer-strategy="unified_profile"][data-profile-spec="neo-brutalism"
         width: auto !important;
         max-width: 100% !important;
         font-size: clamp(1.15rem, 6vw, 1.55rem) !important;
+    }}
+    /* Phone density: long showcase lists move to two compact columns and card rhythm
+       tightens, so every row stays inside the slide box instead of being cropped. */
+    body[data-renderer-strategy="unified_profile"] :is(.preset-grid, .chip-grid, .tag-grid) {{
+        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+        gap: 4px !important;
+    }}
+    body[data-renderer-strategy="unified_profile"] :is(.preset-chip, .preset-tag, .chip, .tag) {{
+        padding: 3px 6px !important;
+        font-size: 10px !important;
+        line-height: 1.25 !important;
+        letter-spacing: 0 !important;
+    }}
+    body[data-renderer-strategy="unified_profile"][data-profile-spec="bold-signal"] .bold-callout {{
+        padding-top: min(1.2vh, 8px) !important;
+        padding-bottom: min(1.2vh, 8px) !important;
+        margin-top: 0 !important;
+    }}
+    body[data-renderer-strategy="unified_profile"][data-profile-spec="vintage-editorial"] .content-wrapper {{
+        padding-top: min(2.2vh, 18px) !important;
+        padding-bottom: min(1.6vh, 12px) !important;
+    }}
+    body[data-renderer-strategy="unified_profile"][data-profile-spec="vintage-editorial"] .slide-footer {{
+        padding-top: min(1vh, 8px) !important;
+        padding-bottom: min(1vh, 8px) !important;
+    }}
+    body[data-renderer-strategy="unified_profile"][data-profile-spec="bold-signal"] :is(p, li, .body-text, .feat-card-desc) {{
+        line-height: 1.32 !important;
+    }}
+    body[data-renderer-strategy="unified_profile"][data-profile-spec="bold-signal"] .slide {{
+        padding-top: min(1.8vh, 15px) !important;
+        padding-bottom: min(1.8vh, 15px) !important;
+    }}
+    body[data-renderer-strategy="unified_profile"][data-profile-spec="neo-retro-dev-deck"] :is(.metrics-grid, .cards-grid) {{
+        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+        gap: 6px !important;
     }}
 }}
 body[data-renderer-strategy="unified_profile"] .profile-template-source {{
@@ -1692,6 +1818,13 @@ def _hydrate_demo_section(
         numbers = ["21", "0", "∞"][: len(number_nodes)]
     for index, node in enumerate(number_nodes):
         _set_node_text(node, numbers[index])
+
+    for selector, field, limit in NARRATIVE_SLOT_SELECTORS:
+        value = _compact(str(spec.get(field, "") or spec.get("key_point", "")), limit=limit)
+        if not value:
+            continue
+        for node in section.select(selector):
+            _set_node_text(node, value)
 
     for index, node in enumerate(section.select("li")):
         if node.find(True):

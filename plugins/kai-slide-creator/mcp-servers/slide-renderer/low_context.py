@@ -581,6 +581,7 @@ def validate_brief_data(brief: Any) -> list[str]:
             slide_optional = {
                 "claim",
                 "explanation",
+                "title_emphasis",
                 "visual_intent",
                 "preferred_layout_family",
                 "chart_policy",
@@ -599,7 +600,7 @@ def validate_brief_data(brief: Any) -> list[str]:
                 for key in ("role", "title", "key_point", "visual"):
                     if key in slide:
                         _ensure_string(slide[key], f"{path}.{key}", errors)
-                for key in ("claim", "explanation", "visual_intent", "preferred_layout_family"):
+                for key in ("claim", "explanation", "title_emphasis", "visual_intent", "preferred_layout_family"):
                     if key in slide and slide[key] is not None:
                         _ensure_string(slide[key], f"{path}.{key}", errors)
                 if "chart_policy" in slide:
@@ -2434,6 +2435,7 @@ def build_slide_spec(brief: dict[str, Any], packet: dict[str, Any] | None = None
             "role": role,
             "layout_id": layout_id,
             "title": _sanitize_pictorial_text(slide["title"]),
+            "title_emphasis": _sanitize_pictorial_text(slide.get("title_emphasis", "")),
             "claim": claim,
             "key_point": explanation,
             "explanation": explanation,
@@ -2889,6 +2891,30 @@ def _assemble_shell_html(
 """
 
 
+SHORT_WINDOW_SHELL_CSS = """
+/* Short laptop windows.
+   Real browser windows on a laptop leave roughly 730-860px of usable height once the menu
+   bar, tab strip and dock are subtracted. Without this tier a dense slide fits at 900px and
+   clips at the top and bottom edges at 733px — the geometry people actually rehearse in.
+   Play mode is unaffected: it pins slides to a fixed 1440x900 box and scales that box. */
+@media (max-height: 860px) {
+    .slide-content {
+        gap: clamp(6px, 1.05vw, 13px);
+        padding: clamp(18px, 3.2vw, 40px);
+    }
+    .slide-num-label { bottom: 16px; }
+}
+
+@media (max-height: 760px) {
+    .slide-content {
+        gap: clamp(5px, 0.85vw, 10px);
+        padding: clamp(14px, 2.6vw, 30px);
+    }
+    .slide-num-label { bottom: 12px; }
+}
+""".strip()
+
+
 def _build_non_swiss_shell_css(style_contract: dict[str, Any], preset: str) -> str:
     contract_css = "\n\n".join(style_contract["css_blocks"])
     tokens = style_contract.get("tokens", {})
@@ -3214,6 +3240,8 @@ body.presenting.presenting-black::after {{
 }}
 
 body.presenting .slide-credit {{ display: none !important; }}
+
+{SHORT_WINDOW_SHELL_CSS}
 """.strip()
 
 
@@ -4751,6 +4779,21 @@ body.presenting.presenting-black::after {{
 }}
 
 body.presenting .slide-credit {{ display: none !important; }}
+
+{SHORT_WINDOW_SHELL_CSS}
+
+/* Swiss Modern dense evidence stacks on short windows. */
+@media (max-height: 860px) {{
+    .inst-blocks {{ gap: clamp(11px, 1.5vw, 18px); }}
+    .inst-block {{ padding: clamp(11px, 1.5vw, 17px); gap: 6px; }}
+    .feat-grid {{ gap: clamp(9px, 1.3vw, 15px); }}
+}}
+
+@media (max-height: 760px) {{
+    .inst-blocks {{ gap: clamp(9px, 1.2vw, 14px); }}
+    .inst-block {{ padding: clamp(9px, 1.2vw, 14px); gap: 5px; }}
+    .feat-grid {{ gap: clamp(7px, 1vw, 12px); }}
+}}
 """.strip()
 
 
@@ -5605,7 +5648,14 @@ def _render_enterprise_contrast_split(spec: dict[str, Any], total: int) -> str:
 
 def _render_enterprise_insight_pull(spec: dict[str, Any], total: int) -> str:
     slide_number = spec["slide_number"]
-    title_tag = _title_tag("div", "ent-pull", spec["title"], preset="Enterprise Dark", layout_id=spec["layout_id"])
+    title_tag = _title_tag(
+        "div",
+        "ent-pull",
+        spec["title"],
+        preset="Enterprise Dark",
+        layout_id=spec["layout_id"],
+        extra_attrs='data-export-slot="title"',
+    )
     return f"""
     <section class="slide enterprise-pull" id="slide-{slide_number}" data-notes="{_escape(spec['speaker_note'])}" aria-label="{_escape(spec['role'])}" data-export-role="insight_pull">
         <div class="slide-content">
@@ -7927,6 +7977,28 @@ def _extract_starter_css(starter_path: Path) -> str:
     return match.group(1).strip() if match else ""
 
 
+def _extract_starter_theme_decor(starter_path: Path) -> str:
+    """Extract optional shared decorative markup from a custom theme starter."""
+    content = _read_text(starter_path)
+    match = re.search(
+        r'<template\s+id=["\']theme-decor["\'][^>]*>(.*?)</template>',
+        content,
+        re.DOTALL | re.IGNORECASE,
+    )
+    return match.group(1).strip() if match else ""
+
+
+def _extract_starter_theme_runtime(starter_path: Path) -> str:
+    """Extract optional custom-theme runtime without copying script tags."""
+    content = _read_text(starter_path)
+    blocks = re.findall(
+        r'<script\s+[^>]*data-theme-runtime(?:=["\'][^"\']*["\'])?[^>]*>(.*?)</script>',
+        content,
+        re.DOTALL | re.IGNORECASE,
+    )
+    return "\n\n".join(block.strip() for block in blocks if block.strip())
+
+
 def _extract_starter_image_urls(starter_path: Path) -> dict[str, str]:
     """Extract all image URLs (logos + backgrounds) from starter.html img tags."""
     content = _read_text(starter_path)
@@ -7954,6 +8026,336 @@ def _extract_starter_image_urls(starter_path: Path) -> dict[str, str]:
     return images
 
 
+def _iridescence_display_items(spec: dict[str, Any], *, limit: int = 6) -> list[str]:
+    """Return local-first display items for the iridescence custom theme."""
+    values = [
+        *spec.get("supporting_facts", []),
+        *spec.get("numeric_facts", []),
+    ]
+    if not values:
+        values = [
+            *spec.get("supporting_items", []),
+            *spec.get("evidence_items", []),
+        ]
+    return _dedupe_preserve(str(value).strip() for value in values if str(value).strip())[:limit]
+
+
+def _iridescence_split_item(item: str) -> tuple[str, str]:
+    """Split one supporting fact into a short label and its description."""
+    text = str(item).strip()
+    for separator in ("：", ":", " — ", "——"):
+        if separator in text:
+            label, _, description = text.partition(separator)
+            label = label.strip()
+            description = description.strip()
+            if label and description:
+                return label, description
+    return text, ""
+
+
+def _iridescence_title_lines(title: str) -> list[str]:
+    normalized = _normalize_title_text(title)
+    if not normalized:
+        return []
+    semantic_chunks = []
+    for chunk in re.split(r"(?<=[，。！？；：!?;:｜|])\s*", normalized):
+        cleaned = chunk.strip().rstrip("｜|").rstrip()
+        if cleaned:
+            semantic_chunks.append(cleaned)
+    if 1 < len(semantic_chunks) <= 3 and all(_title_visual_units(chunk) <= 18 for chunk in semantic_chunks):
+        return semantic_chunks
+    return _balance_title_lines(normalized, max_lines=3, force_balance=True) or [normalized]
+
+
+def _iridescence_fallback_title_emphasis(title: str, lines: list[str]) -> str:
+    visible_title = re.sub(r"<[^>]*>", "", title)
+    latin_tokens = re.findall(r"[A-Za-z][A-Za-z0-9%&+/#._:-]*", visible_title)
+    meaningful_latin = [token for token in latin_tokens if len(token) > 3]
+    if meaningful_latin:
+        return meaningful_latin[-1]
+
+    candidate = re.sub(r"<[^>]*>", "", lines[-1] if lines else title).strip(" .,!?:;，。！？：；、｜|")
+    tokens = _tokenize_title(candidate)
+    if not tokens:
+        return ""
+    if _title_visual_units(candidate) <= 8:
+        return candidate
+
+    suffix: list[str] = []
+    for token in reversed(tokens):
+        proposed = [token, *suffix]
+        if suffix and _title_visual_units(_join_title_tokens(proposed)) > 8:
+            break
+        suffix = proposed
+    return _join_title_tokens(suffix).strip(" .,!?:;，。！？：；、｜|")
+
+
+def _render_iridescence_theme_slide(spec: dict[str, Any], total: int, *, role_index: int) -> str:
+    slide_number = spec["slide_number"]
+    role = spec["role"]
+    layout_id = spec["layout_id"]
+    layout_class = re.sub(r"[^a-zA-Z0-9_-]+", "-", str(layout_id)).strip("-") or "default"
+    layout_class = f"layout-{layout_class}"
+    items = _iridescence_display_items(spec)
+    notes = _escape(spec["speaker_note"])
+    scene_order = (
+        "hero",
+        "fracture",
+        "convergence",
+        "brief",
+        "pipeline",
+        "spectrum",
+        "contract",
+        "gates",
+        "runtime",
+        "modes",
+        "use-cases",
+        "closing",
+    )
+    closing_roles = {"cta", "closing", "cta_close", "getting-started"}
+    if role_index == 0 or role in {"cover", "title"}:
+        scene = "hero"
+    elif role in closing_roles:
+        scene = "closing"
+    else:
+        # Cycle through the middle scenes so decks longer than the scene list
+        # keep alternating compositions instead of repeating the last one.
+        middle_scenes = scene_order[1:-1]
+        scene = middle_scenes[(role_index - 1) % len(middle_scenes)]
+
+    section_class = "slide-title" if scene == "hero" else "slide-closing" if scene == "closing" else "slide-content"
+    export_role = "title" if scene == "hero" else layout_id
+    opener = (
+        f'<section class="slide {section_class} iri-scene iri-scene--{scene} {layout_class}" '
+        f'id="slide-{slide_number}" data-notes="{notes}" aria-label="{_escape(role)}" '
+        f'data-export-role="{_escape(export_role)}">'
+    )
+
+    gate_accent_cycle = (
+        "iri-gate-accent-primary",
+        "iri-gate-accent-secondary",
+        "iri-gate-accent-tertiary",
+    )
+    accent_cycle = (
+        "iri-accent-text-primary",
+        "iri-accent-text-secondary",
+        "iri-accent-text-tertiary",
+    )
+
+    def emphasized_line(line: str, phrase: str | None) -> str:
+        if not phrase or phrase not in line:
+            return _escape(line)
+        before, match, after = line.partition(phrase)
+        return (
+            f"{_escape(before)}"
+            f'<em class="iri-accent-primary">{_escape(match)}</em>'
+            f"{_escape(after)}"
+        )
+
+    def title_markup() -> str:
+        title = str(spec["title"])
+        lines = _iridescence_title_lines(title)
+        phrase = str(spec.get("title_emphasis") or "").strip()
+        if scene not in {"hero", "closing"}:
+            phrase = ""
+        elif not phrase or phrase not in title:
+            phrase = _iridescence_fallback_title_emphasis(title, lines)
+        return "".join(f'<span class="iri-title-line">{emphasized_line(line, phrase)}</span>' for line in lines)
+
+    def header(*, level: int = 2, lead: bool = True) -> str:
+        tag = "h1" if level == 1 else "h2"
+        lead_html = (
+            f'<p class="iri-lead kd-reveal">{_escape(spec.get("key_point", ""))}</p>'
+            if lead and spec.get("key_point")
+            else ""
+        )
+        return (
+            '<div class="iri-copy">'
+            f'<span class="iri-label">{slide_number:02d} / {total:02d} · {_escape(role)}</span>'
+            f'<{tag} class="iri-headline kd-reveal">{title_markup()}</{tag}>'
+            f'{lead_html}'
+            '</div>'
+        )
+
+    def facts(values: list[str], *, accented: bool = True) -> str:
+        return "".join(
+            '<div class="iri-fact kd-reveal">'
+            f'<span class="iri-fact-index{f" {accent_cycle[(index - 1) % len(accent_cycle)]}" if accented else ""}">{index:02d}</span>'
+            f'<strong>{_escape(item)}</strong>'
+            '</div>'
+            for index, item in enumerate(values, start=1)
+        )
+
+    if scene == "hero":
+        body = (
+            '<div class="iri-copy">'
+            f'<span class="iri-label">{slide_number:02d} / {total:02d} · {_escape(role.upper())}</span>'
+            f'<h1 class="iri-headline kd-reveal">{title_markup()}</h1>'
+            f'<p class="iri-lead kd-reveal">{_escape(spec.get("key_point", ""))}</p>'
+            f'<div class="iri-facts">{facts(items[:4], accented=False)}</div>'
+            '</div>'
+        )
+    elif scene == "fracture":
+        split = (len(items) + 1) // 2
+        left = items[:split]
+        right = items[split:]
+        body = (
+            f'{header(lead=False)}'
+            '<div class="iri-fracture-grid">'
+            '<div class="iri-fracture-side">'
+            + "".join(f'<div class="iri-fracture-item kd-reveal">{_escape(item)}</div>' for item in left)
+            + '</div><div class="iri-fracture-scar" aria-hidden="true"></div>'
+            '<div class="iri-fracture-side">'
+            + "".join(f'<div class="iri-fracture-item kd-reveal">{_escape(item)}</div>' for item in right)
+            + '</div></div>'
+        )
+    elif scene == "convergence":
+        body = (
+            '<div class="iri-convergence-core">'
+            f'<span class="iri-label">{slide_number:02d} / {total:02d} · LAST MILE</span>'
+            f'<h2 class="iri-headline kd-reveal">{title_markup()}</h2>'
+            '<span class="iri-convergence-word iri-accent-primary" aria-hidden="true">LAST MILE</span>'
+            f'<div class="iri-convergence-lines">{facts(items[:3])}</div>'
+            '</div>'
+        )
+    elif scene == "brief":
+        fields = "".join(
+            '<div class="iri-field kd-reveal">'
+            f'<span class="iri-number iri-accent-text-primary">{index:02d}</span>'
+            f'<span>{_escape(_iridescence_split_item(item)[0])}</span>'
+            f'<span>{_escape(_iridescence_split_item(item)[1])}</span>'
+            '</div>'
+            for index, item in enumerate(items[:5], start=1)
+        )
+        anchor = spec.get("claim") or spec.get("key_point", "")
+        body = (
+            '<div class="iri-brief-layout">'
+            '<div class="iri-panel iri-brief-code kd-reveal">'
+            f'<strong>{slide_number:02d}</strong>'
+            f'<pre>{_escape(anchor)}</pre></div>'
+            f'<div>{header()}<div class="iri-field-list">{fields}</div></div>'
+            '</div>'
+        )
+    elif scene == "pipeline":
+        pipeline_tints = {
+            2: "iri-accent-tint-primary",
+            4: "iri-accent-tint-secondary",
+            5: "iri-accent-tint-tertiary",
+        }
+        steps = "".join(
+            f'<div class="iri-pipeline-step kd-reveal{f" {pipeline_tints[index]}" if index in pipeline_tints else ""}">'
+            f'<span class="iri-accent-text-primary">{index:02d}</span><strong>{_escape(item)}</strong>'
+            '</div>'
+            for index, item in enumerate(items[:6], start=1)
+        )
+        body = f'{header()}<div class="iri-pipeline">{steps}</div>'
+    elif scene == "spectrum":
+        marker_cycle = (
+            "iri-marker-primary",
+            "iri-marker-secondary",
+            "iri-marker-tertiary",
+        )
+        spectrum_items = "".join(
+            '<div class="iri-spectrum-item kd-reveal">'
+            + (
+                f'<span class="iri-spectrum-marker {marker_cycle[(index - 1) % len(marker_cycle)]}" aria-hidden="true"></span>'
+                if index <= 4
+                else '<span class="iri-spectrum-marker" aria-hidden="true"></span>'
+            )
+            + f'<span>{_escape(item)}</span></div>'
+            for index, item in enumerate(items[:6], start=1)
+        )
+        body = (
+            f'{header()}'
+            '<div class="iri-spectrum">'
+            f'<div class="iri-spectrum-total iri-accent-primary" aria-label="{len(items)} items">{len(items):02d}</div>'
+            f'<div class="iri-spectrum-list">{spectrum_items}</div>'
+            '</div>'
+        )
+    elif scene == "contract":
+        layers = "".join(
+            '<div class="iri-contract-layer kd-reveal">'
+            f'<span class="iri-number iri-accent-text-primary">{index:02d}</span>'
+            f'<strong>{_escape(_iridescence_split_item(item)[0])}</strong>'
+            f'<p>{_escape(_iridescence_split_item(item)[1])}</p>'
+            '</div>'
+            for index, item in enumerate(items[:5], start=1)
+        )
+        body = f'{header()}<div class="iri-contract">{layers}</div>'
+    elif scene == "gates":
+        gates = "".join(
+            f'<div class="iri-gate kd-reveal {gate_accent_cycle[(index - 1) % len(gate_accent_cycle)]}">'
+            f'<span class="{accent_cycle[(index - 1) % len(accent_cycle)]}">GATE {index:02d}</span>'
+            f'<strong>{_escape(_iridescence_split_item(item)[0])}</strong>'
+            f'<small>{_escape(_iridescence_split_item(item)[1])}</small>'
+            '</div>'
+            for index, item in enumerate(items[:4], start=1)
+        )
+        body = f'{header()}<div class="iri-gates">{gates}</div>'
+    elif scene == "runtime":
+        split_items = [_iridescence_split_item(item) for item in items[:6]]
+        keys = "".join(
+            '<div class="iri-key kd-reveal">'
+            f'<b class="iri-accent-text-primary">{index:02d}</b>'
+            f'<span>{_escape(description or label)}</span>'
+            '</div>'
+            for index, (label, description) in enumerate(split_items, start=1)
+        )
+        screen_accents = ("iri-accent-primary", "iri-accent-secondary", "iri-accent-text-tertiary")
+        screen = "<br>".join(
+            f'<span class="{screen_accents[i % len(screen_accents)]}">{_escape(label)}</span>'
+            for i, (label, _) in enumerate(split_items[:3])
+        )
+        body = (
+            f'{header()}'
+            '<div class="iri-runtime-stage">'
+            f'<div class="iri-runtime-screen kd-reveal"><span class="iri-label">{slide_number:02d} / {total:02d}</span>'
+            f'<strong>{screen}</strong></div>'
+            f'<div class="iri-keys">{keys}</div>'
+            '</div>'
+        )
+    elif scene == "modes":
+        mode_accents = ("iri-accent-primary", "iri-accent-secondary")
+        modes = "".join(
+            '<div class="iri-mode kd-reveal"><div>'
+            f'<span class="iri-number {mode_accents[index % len(mode_accents)]}">{index + 1:02d}</span>'
+            f'<h3>{_escape(_iridescence_split_item(item)[0])}</h3></div>'
+            f'<p>{_escape(_iridescence_split_item(item)[1])}</p></div>'
+            for index, item in enumerate(items[:2])
+        )
+        body = (
+            f'{header()}'
+            f'<div class="iri-modes">{modes}</div>'
+        )
+    elif scene == "use-cases":
+        quadrants = "".join(
+            '<div class="iri-quadrant kd-reveal">'
+            f'<span class="iri-number {accent_cycle[(index - 1) % len(accent_cycle)]}">{index:02d}</span>'
+            f'<strong>{_escape(_iridescence_split_item(item)[0])}</strong>'
+            f'<p>{_escape(_iridescence_split_item(item)[1])}</p>'
+            '</div>'
+            for index, item in enumerate(items[:4], start=1)
+        )
+        body = f'{header()}<div class="iri-quadrants">{quadrants}</div>'
+    else:
+        commands = "".join(
+            f'<div class="iri-panel iri-command kd-reveal">{_escape(item)}</div>' for item in items[:3]
+        )
+        closing_note = spec.get("claim") or spec.get("explanation", "")
+        body = (
+            '<div class="iri-closing-layout">'
+            f'<div class="iri-copy"><span class="iri-label">{slide_number:02d} / {total:02d} · {_escape(role.upper())}</span>'
+            f'<h2 class="iri-headline kd-reveal">{title_markup()}</h2>'
+            f'<p class="iri-lead kd-reveal">{_escape(spec.get("key_point", ""))}</p>'
+            f'<div class="iri-closing-note">{_escape(closing_note)}</div></div>'
+            f'<div class="iri-command-stack">{commands}</div>'
+            '</div>'
+        )
+
+    page_label = f'<span class="slide-num-label">{slide_number:02d} / {total:02d}</span>'
+    return f"{opener}{body}{page_label}</section>"
+
+
 def _render_custom_theme_slide(
     spec: dict[str, Any],
     total: int,
@@ -7963,6 +8365,12 @@ def _render_custom_theme_slide(
     role_index: int,
 ) -> str:
     """Render a slide using theme-specific component classes from the style contract."""
+    if _normalize_preset_name(style_contract.get("preset", "")) in {
+        "fantasy rainbow",
+        "iridescence convergence",
+    }:
+        return _render_iridescence_theme_slide(spec, total, role_index=role_index)
+
     slide_number = spec["slide_number"]
     role = spec["role"]
     layout_id = spec["layout_id"]
@@ -7983,7 +8391,7 @@ def _render_custom_theme_slide(
         title_logo = f'<img class="kd-logo-left" src="{logo_url}" alt="Logo">' if logo_url else ""
         hero_img = f'<img class="kd-hero-image" src="{images["hero"]}" alt="首页右侧装饰">' if images.get("hero") else ""
         return f"""
-    <section class="slide slide-title {layout_class}" id="slide-{slide_number}" data-notes="{_escape(spec['speaker_note'])}" aria-label="title" data-export-role="title">
+    <section class="slide slide-title {layout_class}" id="slide-{slide_number}" data-notes="{_escape(spec['speaker_note'])}" aria-label="{_escape(role)}" data-export-role="title">
         {title_logo}
         {hero_img}
         <div class="title-content">
@@ -7997,13 +8405,15 @@ def _render_custom_theme_slide(
         cta_logo = f'<img class="kd-logo-left" src="{logo_url}" alt="Logo">' if logo_url else ""
         closing_left = f'<img class="kd-closing-image-left" src="{images["closing_left"]}" alt="感谢页面">' if images.get("closing_left") else ""
         closing_right = f'<img class="kd-closing-image" src="{images["closing_right"]}" alt="尾页右侧装饰">' if images.get("closing_right") else ""
+        cta_lines = _balance_title_lines(spec["title"], max_lines=2, force_balance=True) or [spec["title"]]
+        cta_title = "".join(f'<span class="title-line ic-title-line">{_escape(line)}</span>' for line in cta_lines[:2])
         return f"""
     <section class="slide slide-closing {layout_class}" id="slide-{slide_number}" data-notes="{_escape(spec['speaker_note'])}" aria-label="cta" data-export-role="cta_close">
         {cta_logo}
         {closing_left}
         {closing_right}
         <div style="position:absolute;left:60px;top:130px;z-index:8;max-width:560px;">
-            <h2 class="kd-reveal" style="font-size:clamp(26pt,3.4vw,38pt);line-height:1.14;margin:0;color:var(--kd-blue);font-weight:700;">{_escape(spec["title"])}</h2>
+            <h2 class="kd-reveal" style="font-size:clamp(26pt,3.4vw,38pt);line-height:1.14;margin:0;color:var(--kd-blue);font-weight:700;">{cta_title}</h2>
             <div class="section-divider kd-reveal" style="background:var(--kd-blue);width:110px;margin:18px 0 14px;"></div>
             <p style="font-size:13pt;color:var(--text-secondary);line-height:1.6;margin:0;">{_escape(spec.get("key_point", ""))}</p>
         </div>
@@ -8025,6 +8435,11 @@ def _render_custom_theme_slide(
             section_num = "03"
         else:
             section_num = f"{role_index:02d}"
+        section_signals = "".join(
+            f'<li class="kd-reveal">{_escape(item)}</li>'
+            for item in items[:3]
+        )
+        signals_html = f'<ul class="ic-section-signals">{section_signals}</ul>' if section_signals else ""
         return f"""
     <section class="slide slide-section {layout_class}" id="slide-{slide_number}" data-notes="{_escape(spec['speaker_note'])}" aria-label="{_escape(role)}" data-export-role="{_escape(layout_id)}">
         {section_bg}
@@ -8034,6 +8449,7 @@ def _render_custom_theme_slide(
             <div class="section-divider kd-reveal"></div>
             <h2 class="section-title kd-reveal">{_escape(spec["title"])}</h2>
             <p class="section-title kd-reveal" style="font-size:clamp(12pt,1.6vw,16pt);font-weight:400;margin-top:16px;line-height:1.6;">{_escape(spec.get("key_point", ""))}</p>
+            {signals_html}
         </div>
     </section>""".strip()
 
@@ -8124,9 +8540,42 @@ def render_custom_theme_html(
     if starter_path.exists():
         starter_css = _extract_starter_css(starter_path)
         images = _extract_starter_image_urls(starter_path)
+        theme_decor = _extract_starter_theme_decor(starter_path)
+        theme_runtime = _extract_starter_theme_runtime(starter_path)
     else:
-        starter_css = "\n\n".join(style_contract["css_blocks"])
+        starter_css = "\n\n".join(style_contract["css_blocks"]) + """
+
+html {
+    height: 100%;
+    overflow-x: hidden;
+    overflow-y: auto;
+    scroll-snap-type: y mandatory;
+    overscroll-behavior-y: contain;
+}
+
+body {
+    margin: 0;
+    min-height: 100%;
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior-y: contain;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+
+.slide {
+    width: 100vw;
+    height: 100vh;
+    height: 100dvh;
+    overflow: hidden;
+    scroll-snap-align: start;
+    scroll-snap-stop: always;
+    position: relative;
+}
+"""
         images = {}
+        theme_decor = ""
+        theme_runtime = ""
 
     specs = build_slide_spec(brief, packet=packet)
     total = len(specs)
@@ -8178,32 +8627,48 @@ body.presenting .slide-credit {{ display: none !important; }}
 .edit-hotzone {{
     position: fixed;
     top: 0; left: 0;
-    width: 120px; height: 120px;
+    width: 80px; height: 80px;
     z-index: 9999;
 }}
 #editToggle, .edit-toggle {{
     position: fixed;
-    top: 12px; left: 12px;
+    top: 16px; left: 16px;
     z-index: 10000;
     padding: 6px 16px;
-    border-radius: 6px;
-    border: 1px solid #ddd;
-    background: #fff;
+    border-radius: 8px;
+    border: 1px solid rgba(255,255,255,.24);
+    color: #fff;
+    background: rgba(10,10,18,.82);
     cursor: pointer;
     font-size: 13px;
-    display: none;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity .2s ease;
 }}
-#editToggle.show, .edit-toggle.show {{ display: block; }}
+#editToggle.show, .edit-toggle.show {{ opacity: 1; pointer-events: auto; }}
 #editToggle.active, .edit-toggle.active {{ background: var(--kd-blue, #2971EB); color: #fff; border-color: var(--kd-blue, #2971EB); }}
 </style>
 </head>
 <body data-export-progress="true" data-preset="{_escape(display_preset)}" {provenance_attrs}>
 <span id="brand-mark">{_escape(brand_mark)}</span>
+{theme_decor}
 {slides_html}
 <div class="edit-hotzone"></div>
-<button id="editToggle" class="edit-toggle" type="button">Edit</button>
+<button id="editToggle" class="edit-toggle" type="button" title="Edit mode (E)" aria-label="Edit mode">Edit</button>
+<div id="notes-panel">
+    <div id="notes-panel-header">
+        <div id="notes-panel-label">SPEAKER NOTES - SLIDE 1 / {total}</div>
+        <div id="notes-drag-hint"></div>
+        <button id="notes-collapse-btn" type="button" title="Collapse / expand">▾</button>
+    </div>
+    <div id="notes-body">
+        <textarea id="notes-textarea" placeholder="Add speaker notes..."></textarea>
+    </div>
+</div>
 <script>
 {js_engine}
+
+{theme_runtime}
 </script>
 </body>
 </html>"""

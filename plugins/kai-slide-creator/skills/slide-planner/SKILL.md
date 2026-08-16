@@ -1,7 +1,7 @@
 ---
 name: slide-planner
 description: Use when user wants to create HTML slide decks, presentations, pitch decks, or reports. Triggers on slide/presentation/deck/ppt/pitch/路演/幻灯片/演示.
-version: 3.2.2
+version: 3.3.0
 user-invocable: true
 metadata: {"emoji":"🎞","os":["darwin","linux","windows"]}
 ---
@@ -42,6 +42,7 @@ Call `mcp__slide-renderer__get_schema` for full schema. Key fields:
 | `style.visual_density` | `low` / `medium` / `high` |
 | `narrative.thesis` | Core argument |
 | `narrative.slides[]` | Each: role, title, key_point, visual |
+| `narrative.slides[].title_emphasis` | Optional: exact phrase within that title to visually emphasize (semantic title emphasis). If omitted, renderer may infer a fallback for emphasis-capable presets |
 | `runtime.presenter_mode` | Default `true` |
 | `runtime.editing_mode` | Default `true` |
 
@@ -84,7 +85,7 @@ All tools prefixed with `mcp__slide-renderer__`.
 1. **Never generate HTML** — only BRIEF.json, then delegate to render_slide.
 2. **Always validate before render** — never skip.
 3. **Page count: 5–20** — no fewer, no more.
-4. **Assertion-style titles** — no "Overview", "Introduction", "Summary".
+4. **Assertion-style titles** — no "Overview", "Introduction", "Summary". Multi-line titles must be balanced: no orphan lines, no collapsed middle lines, no forced wraps from overly narrow measure.
 5. **Narrative arc** — each slide distinct role; no consecutive same-layout.
 6. **Output path** — user's working directory, e.g. `./<slug>.html`.
 7. **No intermediate files** — don't write BRIEF.json unless user asks.
