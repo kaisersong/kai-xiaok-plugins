@@ -1,0 +1,170 @@
+{
+  "schema": "xiaok-provider-runtime-lock-v1",
+  "note": "Pinned self-contained interpreter closure for the slide renderer. Fetched and verified by scripts/vendor-runtimes.mjs; never resolved from PATH or a shared venv at runtime. The report renderer intentionally has NO vendored runtime: it binds to the app's own Electron Node (process.execPath) whose identity digest is frozen per runtime generation, because report is invocation-scoped and replacing the app executable is a signed, user-consented update. See design v54 §4.4 (host Node identity binding).",
+  "runtimes": {
+    "slide-python": {
+      "plugin": "kai-slide-creator",
+      "destDir": "bundled-python",
+      "manifestName": "python-runtime-manifest.json",
+      "manifestSchema": "xiaok-python-runtime-manifest-v1",
+      "implementation": "cpython",
+      "upstream": "astral-sh/python-build-standalone",
+      "targets": {
+        "darwin-arm64": {
+          "url": "https://github.com/astral-sh/python-build-standalone/releases/download/20260814/cpython-3.11.16+20260814-aarch64-apple-darwin-install_only.tar.gz",
+          "sha256": "fcba9f3f676c83e07225e38116649f0c6eb94cb4fcc166632cf92769462b6e39",
+          "archive": "tar.gz",
+          "archiveRoot": "python",
+          "upstreamTag": "20260814",
+          "version": "3.11.16",
+          "abi": "cp311",
+          "launcherRelativePath": "python/bin/python3.11",
+          "prunePaths": [
+            "python/include",
+            "python/share",
+            "python/lib/pkgconfig",
+            "python/lib/tcl8",
+            "python/lib/tcl8.6",
+            "python/lib/tcl9.0",
+            "python/lib/tk9.0",
+            "python/lib/libpython3.11.dylib",
+            "python/lib/libtcl9.0.dylib",
+            "python/lib/libtcl9tk9.0.dylib",
+            "python/lib/python3.11/idlelib",
+            "python/lib/python3.11/tkinter",
+            "python/lib/python3.11/turtledemo",
+            "python/lib/python3.11/lib2to3",
+            "python/lib/python3.11/test",
+            "python/lib/python3.11/config-3.11-darwin",
+            "python/lib/python3.11/lib-dynload/_tkinter.cpython-311-darwin.so",
+            "python/lib/python3.11/site-packages/pip",
+            "python/lib/python3.11/site-packages/setuptools",
+            "python/lib/python3.11/site-packages/pkg_resources",
+            "python/lib/python3.11/site-packages/_distutils_hack",
+            "python/lib/python3.11/site-packages/distutils-precedence.pth",
+            "python/lib/python3.11/site-packages/pip-26.2.1.dist-info",
+            "python/lib/python3.11/site-packages/setuptools-82.0.1.dist-info"
+          ],
+          "keepBinDirEntries": {
+            "dir": "python/bin",
+            "keep": [
+              "python3.11",
+              "python3",
+              "python"
+            ]
+          },
+          "stdlibRoots": [
+            "python/lib/python3.11"
+          ],
+          "extensionRoots": [
+            "python/lib/python3.11/lib-dynload"
+          ],
+          "dynamicDependencyRule": {
+            "tool": "otool -L",
+            "allowedSystemPrefixes": [
+              "/usr/lib",
+              "/System/Library"
+            ],
+            "requireInGenerationRoot": true
+          },
+          "dropDirNames": [
+            "__pycache__"
+          ]
+        },
+        "win32-x64": {
+          "url": "https://github.com/astral-sh/python-build-standalone/releases/download/20260814/cpython-3.14.7+20260814-x86_64-pc-windows-msvc-install_only.tar.gz",
+          "sha256": "870e9199dff4aa993c852c0733f7d36c359d127a67947f08f0755765ecf4232c",
+          "archive": "tar.gz",
+          "archiveRoot": "python",
+          "upstreamTag": "20260814",
+          "version": "3.14.7",
+          "abi": "cp314",
+          "launcherRelativePath": "python/python.exe",
+          "prunePaths": [
+            "python/DLLs/_asyncio.pdb",
+            "python/DLLs/_bz2.pdb",
+            "python/DLLs/_ctypes.pdb",
+            "python/DLLs/_ctypes_test.pdb",
+            "python/DLLs/_decimal.pdb",
+            "python/DLLs/_elementtree.pdb",
+            "python/DLLs/_hashlib.pdb",
+            "python/DLLs/_lzma.pdb",
+            "python/DLLs/_multiprocessing.pdb",
+            "python/DLLs/_overlapped.pdb",
+            "python/DLLs/_queue.pdb",
+            "python/DLLs/_remote_debugging.pdb",
+            "python/DLLs/_socket.pdb",
+            "python/DLLs/_sqlite3.pdb",
+            "python/DLLs/_ssl.pdb",
+            "python/DLLs/_testbuffer.pdb",
+            "python/DLLs/_testcapi.pdb",
+            "python/DLLs/_testclinic.pdb",
+            "python/DLLs/_testclinic_limited.pdb",
+            "python/DLLs/_testconsole.pdb",
+            "python/DLLs/_testimportmultiple.pdb",
+            "python/DLLs/_testinternalcapi.pdb",
+            "python/DLLs/_testlimitedcapi.pdb",
+            "python/DLLs/_testmultiphase.pdb",
+            "python/DLLs/_testsinglephase.pdb",
+            "python/DLLs/_tkinter.pdb",
+            "python/DLLs/_uuid.pdb",
+            "python/DLLs/_wmi.pdb",
+            "python/DLLs/_zoneinfo.pdb",
+            "python/DLLs/_zstd.pdb",
+            "python/DLLs/libcrypto-3-x64.pdb",
+            "python/DLLs/libssl-3-x64.pdb",
+            "python/DLLs/pyexpat.pdb",
+            "python/DLLs/select.pdb",
+            "python/DLLs/sqlite3.pdb",
+            "python/DLLs/unicodedata.pdb",
+            "python/DLLs/winsound.pdb",
+            "python/Lib/venv/scripts/nt/venvlauncher.pdb",
+            "python/Lib/venv/scripts/nt/venvwlauncher.pdb",
+            "python/python.pdb",
+            "python/python3.pdb",
+            "python/python314.pdb",
+            "python/pythonw.pdb",
+            "python/include",
+            "python/libs",
+            "python/Scripts",
+            "python/pythonw.exe",
+            "python/Lib/idlelib",
+            "python/Lib/tkinter",
+            "python/Lib/turtledemo",
+            "python/Lib/lib2to3",
+            "python/Lib/test",
+            "python/Lib/site-packages/pip",
+            "python/Lib/site-packages/setuptools",
+            "python/Lib/site-packages/pkg_resources",
+            "python/DLLs/tcl90.dll",
+            "python/DLLs/tcl9tk90.dll",
+            "python/DLLs/_tkinter.pyd",
+            "python/DLLs/tk90.dll",
+            "python/tcl",
+            "python/Lib/site-packages/_distutils_hack",
+            "python/Lib/site-packages/distutils-precedence.pth",
+            "python/Lib/site-packages/pip-26.2.1.dist-info",
+            "python/Lib/site-packages/setuptools-82.0.1.dist-info"
+          ],
+          "stdlibRoots": [
+            "python/Lib"
+          ],
+          "extensionRoots": [
+            "python/DLLs"
+          ],
+          "dynamicDependencyRule": {
+            "tool": "pe-imports",
+            "allowedSystemScopes": [
+              "KnownDLLs",
+              "System32"
+            ],
+            "requireInGenerationRoot": true
+          },
+          "dropDirNames": [
+            "__pycache__"
+          ]
+        }
+      }
+    }
+  }
+}

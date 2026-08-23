@@ -12,6 +12,13 @@ node_modules/
 mcp-servers/report-renderer/dist/
 plugins/*/mcp-servers/report-renderer/dist/
 
+# Vendored self-contained provider runtimes (materialised by
+# scripts/vendor-runtimes.mjs from pinned runtime-lock.json inputs; ~340 MB).
+# Not committed: the lock file plus the script fully reproduce them, and the
+# per-target manifest digest is what packaging and runtime verify.
+plugins/kai-slide-creator/bundled-python/
+plugins/kai-report-creator/bundled-node/
+
 # Test output
 output.html
 *.eval.json
