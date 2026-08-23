@@ -63,7 +63,19 @@ function run(cmd, args, opts = {}) {
   return r.stdout ?? '';
 }
 
-/* ---------- canonical tree merkle (no-follow, tagged union) ---------- */
+/* ---------- canonical tree merkle (no-follow, tagged union) ----------
+ *
+ * Scope of the guarantee: the digest covers path, mode, size and content of
+ * every entry, so it detects any drift in a closure between the moment it was
+ * materialised and the moment packaging consumes it — that is what caught venv
+ * creation writing bytecode back into the closure.
+ *
+ * It is deliberately NOT a cross-host reproducibility proof. File modes come
+ * from the OS that extracted the archive, so the same target materialised on
+ * macOS (644/755) and on Windows (Windows has no POSIX modes) yields the same
+ * entry set but different digests. Byte-exactness of the *inputs* is what
+ * runtime-lock.json pins, via the SHA-256 of each downloaded archive.
+ */
 
 function walkCanonical(root) {
   const entries = [];
