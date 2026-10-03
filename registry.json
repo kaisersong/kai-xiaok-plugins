@@ -67,7 +67,11 @@
       "repo": "kaisersong/kai-xiaok-plugins",
       "path": "plugins/kai-meeting-assistant",
       "version": "0.1.0",
-      "platforms": ["darwin", "linux", "win32"],
+      "platforms": [
+        "darwin",
+        "linux",
+        "win32"
+      ],
       "dependencies": {
         "runtime": "python3",
         "install": "pip3 install -r mcp-servers/meeting-transcriber/requirements.txt",
@@ -76,13 +80,14 @@
     },
     {
       "name": "cua-computer-use",
-      "display_name": "Computer Use for Mac",
-      "description": "通过 CUA Driver 在 macOS 上观察和操作本机应用",
+      "display_name": "Computer Use",
+      "description": "通过 CUA Driver 观察和操作本机 macOS / Windows 应用",
       "category": "local-automation",
       "keywords": [
         "computer-use",
         "cua",
         "macos",
+        "windows",
         "automation",
         "mcp",
         "本机自动化",
@@ -90,12 +95,15 @@
       ],
       "repo": "kaisersong/kai-xiaok-plugins",
       "path": "plugins/cua-computer-use",
-      "version": "0.2.1",
-      "platforms": ["darwin"],
+      "version": "0.3.1",
+      "platforms": [
+        "darwin",
+        "win32"
+      ],
       "dependencies": {
         "runtime": "cua-driver",
         "install": "Use Xiaok Settings to install the official CUA Driver dependency",
-        "test": "cua-driver --version && cua-driver check_permissions"
+        "test": "Use Xiaok Settings to validate the resolved platform driver and MCP interface"
       },
       "externalDependencies": [
         {
@@ -109,7 +117,7 @@
             "/opt/homebrew/bin/cua-driver",
             "cua-driver"
           ],
-          "minVersion": "0.1.0",
+          "minVersion": "0.19.3",
           "install": {
             "kind": "official_installer",
             "sourceUrl": "https://raw.githubusercontent.com/trycua/cua/main/libs/cua-driver/scripts/install.sh",
@@ -121,24 +129,45 @@
           "update": {
             "kind": "command",
             "command": "~/.local/bin/cua-driver",
-            "args": ["update"],
+            "args": [
+              "update"
+            ],
             "requiresUserConfirmation": true
           },
           "health": {
-            "version": ["~/.local/bin/cua-driver", "--version"],
-            "status": ["~/.local/bin/cua-driver", "status"],
-            "permissions": ["~/.local/bin/cua-driver", "check_permissions"],
-            "doctor": ["~/.local/bin/cua-driver", "doctor"]
+            "version": [
+              "~/.local/bin/cua-driver",
+              "--version"
+            ],
+            "status": [
+              "~/.local/bin/cua-driver",
+              "status"
+            ],
+            "permissions": [
+              "~/.local/bin/cua-driver",
+              "check_permissions"
+            ],
+            "doctor": [
+              "~/.local/bin/cua-driver",
+              "doctor"
+            ]
           },
           "mcp": {
             "serverName": "cua-driver",
             "command": "~/.local/bin/cua-driver",
-            "args": ["mcp"],
+            "args": [
+              "mcp"
+            ],
             "requiresUserActivation": true
           },
           "toolPolicy": {
             "defaultPermission": "write",
-            "safeTools": ["list_apps", "list_windows", "get_window_state", "screenshot"],
+            "safeTools": [
+              "list_apps",
+              "list_windows",
+              "get_window_state",
+              "screenshot"
+            ],
             "hiddenRawToolsInProduct": true,
             "productWrapper": "xiaok_computer_use"
           }
@@ -169,7 +198,11 @@
       "repo": "kaisersong/kai-xiaok-plugins",
       "path": "plugins/kai-infinity-canvas",
       "version": "0.1.0",
-      "platforms": ["darwin", "linux", "win32"],
+      "platforms": [
+        "darwin",
+        "linux",
+        "win32"
+      ],
       "dependencies": {
         "runtime": "node",
         "install": "npm install && npm run build",

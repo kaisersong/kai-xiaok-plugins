@@ -33,7 +33,7 @@
             "serverNames": [
               "cua-driver"
             ],
-            "reason": "CUA Driver is installed through Xiaok Settings on macOS",
+            "reason": "CUA Driver is installed through Xiaok Settings with the platform-specific verified runtime",
             "cwd": "."
           }
         ]

@@ -26,7 +26,7 @@ const SUPPORTED_MODES = new Set([GIT_MODE_REGULAR, GIT_MODE_EXECUTABLE, GIT_MODE
 /**
  * Typed replacements for the v1 `dependencies.install` shell strings.
  * Anything that cannot be executed safely and reproducibly is `external`:
- * unhashed pip requirements and the macOS-only CUA driver installer.
+ * unhashed pip requirements and the host-owned CUA driver installation.
  */
 const PLUGIN_SPECS = [
   {
@@ -36,7 +36,7 @@ const PLUGIN_SPECS = [
       {
         kind: 'external',
         serverNames: ['cua-driver'],
-        reason: 'CUA Driver is installed through Xiaok Settings on macOS',
+        reason: 'CUA Driver is installed through Xiaok Settings with the platform-specific verified runtime',
       },
     ],
   },

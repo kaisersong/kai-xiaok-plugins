@@ -1,30 +1,59 @@
 {
   "name": "cua-computer-use",
-  "version": "0.2.1",
-  "description": "Computer Use for Mac powered by CUA Driver",
-  "platforms": ["darwin"],
+  "version": "0.3.1",
+  "description": "Local macOS and Windows computer use through the Xiaok CUA wrapper",
+  "platforms": [
+    "darwin",
+    "win32"
+  ],
   "interface": {
-    "display_name": "Computer Use for Mac",
-    "short_description": "通过 CUA Driver 在 macOS 上观察和操作本机应用",
+    "display_name": "Computer Use",
+    "short_description": "通过 CUA Driver 观察和操作本机 macOS / Windows 应用",
     "category": "local-automation",
-    "capabilities": ["computer-use", "macos-automation", "mcp-tools"],
-    "keywords": ["computer-use", "cua", "macos", "automation", "mcp"]
+    "capabilities": [
+      "computer-use",
+      "macos-automation",
+      "windows-automation",
+      "mcp-tools"
+    ],
+    "keywords": [
+      "computer-use",
+      "cua",
+      "macos",
+      "windows",
+      "automation",
+      "mcp"
+    ]
   },
-  "skills": ["skills/computer-use"],
+  "skills": [
+    "skills/computer-use"
+  ],
   "mcpServers": [
     {
       "name": "cua-driver",
       "type": "stdio",
       "command": "~/.local/bin/cua-driver",
-      "args": ["mcp"],
-      "protocol": { "mode": "legacy" },
-      "timeout": { "startup": 30000, "call": 30000 },
+      "args": [
+        "mcp"
+      ],
+      "protocol": {
+        "mode": "legacy"
+      },
+      "timeout": {
+        "startup": 30000,
+        "call": 30000
+      },
       "requiresUserActivation": true
     }
   ],
   "toolPolicy": {
     "defaultPermission": "write",
-    "safeTools": ["get_window_state", "list_apps", "list_windows", "screenshot"],
+    "safeTools": [
+      "get_window_state",
+      "list_apps",
+      "list_windows",
+      "screenshot"
+    ],
     "hiddenRawToolsInProduct": true,
     "productWrapper": "xiaok_computer_use"
   },
