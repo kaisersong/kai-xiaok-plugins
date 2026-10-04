@@ -12,11 +12,12 @@
 
 import { copyFile, mkdir, readFile, stat, writeFile, rename } from 'node:fs/promises'
 import { basename, dirname, extname, join, relative, resolve, sep } from 'node:path'
-import readline from 'node:readline'
+import { McpServer, fromJsonSchema } from '@modelcontextprotocol/server'
+import { serveStdio } from '@modelcontextprotocol/server/stdio'
 import { generateKeyBetween } from 'fractional-indexing-jittered'
 
 const SERVER_NAME = 'kai-canvas-mcp'
-const SERVER_VERSION = '0.1.0'
+const SERVER_VERSION = '0.3.0'
 
 const TOOL_GET_SELECTION = 'kai_canvas_get_selection'
 const TOOL_INSERT_IMAGE = 'kai_canvas_insert_image'
@@ -26,20 +27,6 @@ const TOOL_EXPORT_PNG = 'kai_canvas_export_png'
 const PAGE_ID_PREFIX = 'page:'
 const PAGE_ASSETS_ROUTE = '/page-assets/'
 const CANVAS_FILE_NAME = 'canvas.json'
-
-// ── JSON-RPC ──────────────────────────────────────────────────────────
-
-function send(msg) {
-  process.stdout.write(`${JSON.stringify(msg)}\n`)
-}
-
-function sendResult(id, result) {
-  send({ jsonrpc: '2.0', id, result })
-}
-
-function sendError(id, code, message) {
-  send({ jsonrpc: '2.0', id, error: { code, message } })
-}
 
 // ── Helpers ───────────────────────────────────────────────────────────
 
@@ -697,77 +684,36 @@ async function handleExportPng(args) {
   }
 }
 
-async function handleToolCall(id, params) {
-  try {
-    if (params?.name === TOOL_GET_SELECTION) {
-      const result = await handleGetSelection(params.arguments ?? {})
-      sendResult(id, result)
-      return
-    }
-    if (params?.name === TOOL_INSERT_IMAGE) {
-      const result = await handleInsertImage(params.arguments ?? {})
-      sendResult(id, result)
-      return
-    }
-    if (params?.name === TOOL_GET_CONTENT) {
-      const result = await handleGetContent(params.arguments ?? {})
-      sendResult(id, result)
-      return
-    }
-    if (params?.name === TOOL_EXPORT_PNG) {
-      const result = await handleExportPng(params.arguments ?? {})
-      sendResult(id, result)
-      return
-    }
-    sendError(id, -32602, `Unknown tool: ${params?.name ?? ''}`)
-  } catch (error) {
-    sendResult(id, {
-      content: [{ type: 'text', text: `Error: ${error.message}` }],
-      isError: true,
-    })
-  }
+const handlers = {
+  [TOOL_GET_SELECTION]: handleGetSelection,
+  [TOOL_INSERT_IMAGE]: handleInsertImage,
+  [TOOL_GET_CONTENT]: handleGetContent,
+  [TOOL_EXPORT_PNG]: handleExportPng,
 }
 
-// ── Main loop ─────────────────────────────────────────────────────────
+async function reportProgress(ctx, progress) {
+  const progressToken = ctx.mcpReq._meta?.progressToken
+  if (progressToken === undefined || ctx.mcpReq.signal.aborted) return
+  await ctx.mcpReq.notify({ method: 'notifications/progress', params: { progressToken, progress, total: 2 } }).catch(() => {})
+}
 
-const rl = readline.createInterface({ input: process.stdin, terminal: false })
-
-rl.on('line', (line) => {
-  let message
-  try { message = JSON.parse(line) } catch { return }
-
-  const { id, method, params } = message
-
-  if (method === 'initialize') {
-    sendResult(id, {
-      protocolVersion: params?.protocolVersion ?? '2025-11-25',
-      capabilities: { tools: {} },
-      serverInfo: { name: SERVER_NAME, version: SERVER_VERSION },
+export function buildServer() {
+  const server = new McpServer({ name: SERVER_NAME, version: SERVER_VERSION })
+  for (const { name, inputSchema, ...metadata } of toolDefinitions()) {
+    server.registerTool(name, { ...metadata, inputSchema: fromJsonSchema(inputSchema) }, async (args, ctx) => {
+      const reportsProgress = name === TOOL_INSERT_IMAGE || name === TOOL_EXPORT_PNG
+      try {
+        if (reportsProgress) await reportProgress(ctx, 1)
+        ctx.mcpReq.signal.throwIfAborted()
+        const result = await handlers[name](args)
+        if (reportsProgress) await reportProgress(ctx, 2)
+        return result
+      } catch (error) {
+        return { content: [{ type: 'text', text: `Error: ${error.message}` }], isError: true }
+      }
     })
-    return
   }
+  return server
+}
 
-  if (method === 'ping') {
-    sendResult(id, {})
-    return
-  }
-
-  if (method === 'tools/list') {
-    sendResult(id, { tools: toolDefinitions() })
-    return
-  }
-
-  if (method === 'tools/call') {
-    handleToolCall(id, params)
-    return
-  }
-
-  // Notifications (no id)
-  if (id === undefined) return
-
-  if (method === 'initialized' || method === 'notifications/initialized') return
-
-  sendError(id, -32601, `Method not found: ${method}`)
-})
-
-rl.on('close', () => process.exit(0))
+await serveStdio(() => buildServer())

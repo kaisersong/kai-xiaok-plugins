@@ -14575,7 +14575,7 @@ function date4(params) {
 // node_modules/zod/v4/classic/external.js
 config(en_default());
 
-// node_modules/@modelcontextprotocol/core/dist/auth-CUe6YdwF.mjs
+// node_modules/@modelcontextprotocol/core/dist/auth-BNDyLTqp.mjs
 var LATEST_PROTOCOL_VERSION = "2025-11-25";
 var SUPPORTED_PROTOCOL_VERSIONS = [
   LATEST_PROTOCOL_VERSION,
@@ -15412,7 +15412,8 @@ var OAuthMetadataSchema = looseObject({
   introspection_endpoint_auth_signing_alg_values_supported: array(string2()).optional(),
   code_challenge_methods_supported: array(string2()).optional(),
   client_id_metadata_document_supported: boolean2().optional(),
-  authorization_response_iss_parameter_supported: boolean2().optional().catch(void 0)
+  authorization_response_iss_parameter_supported: boolean2().optional().catch(void 0),
+  dpop_signing_alg_values_supported: array(string2()).optional()
 });
 var OpenIdProviderMetadataSchema = looseObject({
   issuer: string2(),
@@ -15463,7 +15464,8 @@ var OAuthTokensSchema = object({
   token_type: string2(),
   expires_in: coerce_exports.number().optional(),
   scope: string2().optional(),
-  refresh_token: string2().optional()
+  refresh_token: string2().optional(),
+  issuer: string2().optional().catch(void 0)
 }).strip();
 var IdJagTokenExchangeResponseSchema = object({
   issued_token_type: literal("urn:ietf:params:oauth:token-type:id-jag"),
@@ -15501,7 +15503,8 @@ var OAuthClientInformationSchema = object({
   client_id: string2(),
   client_secret: string2().optional(),
   client_id_issued_at: number2().optional(),
-  client_secret_expires_at: number2().optional()
+  client_secret_expires_at: number2().optional(),
+  issuer: string2().optional().catch(void 0)
 }).strip();
 var OAuthClientInformationFullSchema = OAuthClientMetadataSchema.merge(OAuthClientInformationSchema);
 var OAuthClientRegistrationErrorSchema = object({
@@ -15513,7 +15516,7 @@ var OAuthTokenRevocationRequestSchema = object({
   token_type_hint: string2().optional()
 }).strip();
 
-// node_modules/@modelcontextprotocol/server/dist/src-CX2iR2pK.mjs
+// node_modules/@modelcontextprotocol/server/dist/src-Cqbh3MYc.mjs
 var BRANDS = Symbol.for("mcp.sdk.errorBrands");
 function stampErrorBrands(instance, ctor) {
   const brands = /* @__PURE__ */ new Set();
@@ -15627,8 +15630,18 @@ var SdkError = class extends Error {
     if (typeof this !== "function") throw new TypeError("isInstance must be called on the class (e.g. `SdkError.isInstance(value)`); for callbacks use `v => SdkError.isInstance(v)`");
     return brandedHasInstance(this, value);
   }
-  constructor(code, message, data) {
-    super(message);
+  /**
+  * @param code - Stable string code identifying the failure ({@linkcode SdkErrorCode}).
+  * @param message - Human-readable description.
+  * @param data - Optional structured payload (for example the HTTP status carried by
+  * {@linkcode SdkHttpError}). Opaque to the SDK: a `cause` key inside `data` is not
+  * promoted to `Error.cause`.
+  * @param options - Standard `ErrorOptions`, forwarded to `Error`. Pass the underlying
+  * failure as `{ cause }` so it is reachable through the `Error.cause` chain that
+  * loggers and error trackers walk.
+  */
+  constructor(code, message, data, options) {
+    super(message, options);
     this.code = code;
     this.data = data;
     this.name = "SdkError";
@@ -15639,8 +15652,11 @@ var SdkHttpError = class extends SdkError {
   static {
     Object.defineProperty(this, "mcpBrand", { value: "mcp.SdkHttpError" });
   }
-  constructor(code, message, data) {
-    super(code, message, data);
+  /**
+  * @param options - Standard `ErrorOptions`, forwarded to `Error` (see {@linkcode SdkError}).
+  */
+  constructor(code, message, data, options) {
+    super(code, message, data, options);
     this.name = "SdkHttpError";
   }
   get status() {
@@ -17743,7 +17759,8 @@ function build() {
     ListResourceTemplatesResultResponseSchema: wireResultResponse(ListResourceTemplatesResultSchema$1),
     ReadResourceResultResponseSchema: wireResultResponse(union([ReadResourceResultSchema$1, InputRequiredResultSchema])),
     CompleteResultResponseSchema: wireResultResponse(CompleteResultSchema$1),
-    DiscoverResultResponseSchema: wireResultResponse(DiscoverResultSchema$1)
+    DiscoverResultResponseSchema: wireResultResponse(DiscoverResultSchema$1),
+    SubscriptionsListenResultResponseSchema: wireResultResponse(SubscriptionsListenResultSchema$1)
   };
 }
 var memo;
@@ -18171,6 +18188,8 @@ var rev2026Codec = {
       const rawInputRequests = raw["inputRequests"];
       const inputRequests = isPlainObject$4(rawInputRequests) ? rawInputRequests : {};
       const requestState = raw["requestState"];
+      const metaParse = raw["_meta"] === void 0 ? void 0 : buildSchemas2026().ResultMetaSchema.safeParse(raw["_meta"]);
+      const meta3 = metaParse?.success ? metaParse.data : void 0;
       if (Object.keys(inputRequests).length === 0 && typeof requestState !== "string") return {
         kind: "invalid",
         error: new SdkError(SdkErrorCode.InvalidResult, `Invalid result for ${method}: input_required carries neither inputRequests nor requestState (every input_required result must include at least one of the two)`, {
@@ -18181,7 +18200,8 @@ var rev2026Codec = {
       return {
         kind: "input_required",
         inputRequests,
-        ...typeof requestState === "string" && { requestState }
+        ...typeof requestState === "string" && { requestState },
+        ...meta3 !== void 0 && { _meta: meta3 }
       };
     }
     if (rawResultType !== "complete") return {
@@ -18247,6 +18267,9 @@ function isSpecRequestMethod(method) {
 }
 function isSpecNotificationMethod(method) {
   return ALL_CODECS.some((codec2) => codec2.hasNotificationMethod(method));
+}
+function isExtensionReusedRequestMethod(method) {
+  return method === "tasks/get" || method === "tasks/cancel";
 }
 var ALL_CODECS = [rev2025Codec, rev2026Codec];
 function isPlainObject$3(value) {
@@ -18591,7 +18614,7 @@ var INBOUND_VALIDATION_LADDER = [
     evaluatedAt: "pre-dispatch",
     codes: [HEADER_MISMATCH_ERROR_CODE],
     conformance: ["http-header-validation"],
-    rationale: "SEP-2243 standard `Mcp-Method` / `Mcp-Name` headers \u2014 presence, sentinel decoding, and `Mcp-Name` \u2194 body cross-check \u2014 are validated by the HTTP entry on a modern-classified request after the supported-revision gate and before dispatch. The classifier\u2019s own header-mismatch cells (protocol-version, `Mcp-Method` mismatch) stay on the edge `era-classification` rung; this rung carries the entry-layer presence/`Mcp-Name` half. Evaluated before the capability gate, the factory call, and the `Mcp-Param-*` rung so a request that fails several rungs is answered by the standard-header rung first. The documented order (after method-registry 5 and request-params 6) is NOT the observed precedence: serveModern evaluates this rung immediately after the supported-revision gate, so a request that also fails a dispatch rung is answered here before the dispatch rungs (5\u20136) are consulted."
+    rationale: "SEP-2243 standard `MCP-Protocol-Version` / `Mcp-Method` / `Mcp-Name` headers \u2014 presence, sentinel decoding, and `Mcp-Name` \u2194 body cross-check \u2014 are validated by the HTTP entry on a modern-classified request after the supported-revision gate and before dispatch. The spec requires `MCP-Protocol-Version` and `Mcp-Method` on every modern *request* POST (`Mcp-Name` only for the methods that mirror `params.name` / `params.uri` / `params.taskId`, see `MCP_NAME_HEADER_SOURCE`) and names them in that order, so a request missing several is answered by the earliest. Notification POSTs are exempt: the presence half runs on requests only, so a modern-enveloped notification is dispatched even with no standard headers at all. The classifier\u2019s own header-mismatch cells (protocol-version, `Mcp-Method` mismatch) stay on the edge `era-classification` rung; this rung carries the entry-layer presence/`Mcp-Name` half \u2014 including the missing `MCP-Protocol-Version` cell, which cannot live on the edge rung without breaking body-primary classification. Evaluated before the capability gate, the factory call, and the `Mcp-Param-*` rung so a request that fails several rungs is answered by the standard-header rung first. The documented order (after method-registry 5 and request-params 6) is NOT the observed precedence: serveModern evaluates this rung immediately after the supported-revision gate, so a request that also fails a dispatch rung is answered here before the dispatch rungs (5\u20136) are consulted."
   },
   {
     rung: "client-capabilities",
@@ -19225,6 +19248,8 @@ var Protocol = class {
   _transport;
   _requestMessageId = 0;
   _requestHandlers = /* @__PURE__ */ new Map();
+  /** Methods registered with an explicit schema; the era gate in `_onrequest` reads it for the Tasks extension names. */
+  _customSchemaRequestMethods = /* @__PURE__ */ new Set();
   _requestHandlerAbortControllers = /* @__PURE__ */ new Map();
   _notificationHandlers = /* @__PURE__ */ new Map();
   _responseHandlers = /* @__PURE__ */ new Map();
@@ -19361,7 +19386,7 @@ var Protocol = class {
     return this._requestHandlers.get(method);
   }
   async _oncancel(notification) {
-    if (!notification.params.requestId) return;
+    if (notification.params.requestId === void 0) return;
     this._requestHandlerAbortControllers.get(notification.params.requestId)?.abort(notification.params.reason);
   }
   _setupTimeout(messageId, timeout, maxTotalTimeout, onTimeout, resetTimeoutOnProgress = false) {
@@ -19508,7 +19533,7 @@ var Protocol = class {
         return;
       }
     }
-    if (isSpecRequestMethod(request.method) && !codec2.hasRequestMethod(request.method)) {
+    if (isSpecRequestMethod(request.method) && !codec2.hasRequestMethod(request.method) && !(isExtensionReusedRequestMethod(request.method) && this._customSchemaRequestMethods.has(request.method))) {
       sendErrorResponse(ProtocolErrorCode.MethodNotFound, "Method not found");
       return;
     }
@@ -19641,8 +19666,11 @@ var Protocol = class {
   }
   request(request, schemaOrOptions, maybeOptions) {
     const codec2 = this._resolveOutboundCodec(request.method);
+    if (isStandardSchema(schemaOrOptions)) {
+      if (!isExtensionReusedRequestMethod(request.method)) this._assertOutboundRequestInEra(codec2, request.method);
+      return this._requestWithSchemaViaCodec(codec2, request, schemaOrOptions, maybeOptions);
+    }
     this._assertOutboundRequestInEra(codec2, request.method);
-    if (isStandardSchema(schemaOrOptions)) return this._requestWithSchemaViaCodec(codec2, request, schemaOrOptions, maybeOptions);
     const validate = codecResultValidator(codec2, request.method);
     if (validate === void 0) throw new TypeError(`'${request.method}' is not a spec method; pass a result schema as the second argument to request().`);
     return this._requestWithSchemaViaCodec(codec2, request, validate, schemaOrOptions);
@@ -19760,19 +19788,20 @@ var Protocol = class {
       const cancel = (reason) => {
         if (responseReceived) return;
         this._progressHandlers.delete(messageId);
-        if (requestAbort === void 0) this._transport?.send(this._envelopeOutbound({
-          jsonrpc: "2.0",
-          method: "notifications/cancelled",
-          params: {
-            requestId: messageId,
-            reason: String(reason)
-          }
-        }), {
-          relatedRequestId,
-          resumptionToken,
-          onresumptiontoken
-        }).catch((error51) => this._onerror(/* @__PURE__ */ new Error(`Failed to send cancellation: ${error51}`)));
-        else requestAbort.abort();
+        if (requestAbort === void 0) {
+          if (request.method !== "initialize") this._transport?.send(this._envelopeOutbound({
+            jsonrpc: "2.0",
+            method: "notifications/cancelled",
+            params: {
+              requestId: messageId,
+              reason: String(reason)
+            }
+          }), {
+            relatedRequestId,
+            resumptionToken,
+            onresumptiontoken
+          }).catch((error51) => this._onerror(/* @__PURE__ */ new Error(`Failed to send cancellation: ${error51}`)));
+        } else requestAbort.abort();
         reject(reason instanceof SdkError ? reason : new SdkError(SdkErrorCode.RequestTimeout, String(reason)));
       };
       this._responseHandlers.set(messageId, (response) => {
@@ -19834,7 +19863,7 @@ var Protocol = class {
   * Emits a notification, which is a one-way message that does not expect a response.
   */
   async notification(notification, options) {
-    return this._notificationViaCodec(this._resolveOutboundCodec(notification.method), notification, options);
+    return await this._notificationViaCodec(this._resolveOutboundCodec(notification.method), notification, options);
   }
   /**
   * The notification funnel proper, keyed by the resolved era codec —
@@ -19852,7 +19881,7 @@ var Protocol = class {
       jsonrpc: "2.0",
       ...notification
     });
-    if ((this._options?.debouncedNotificationMethods ?? []).includes(notification.method) && !notification.params && !options?.relatedRequestId) {
+    if ((this._options?.debouncedNotificationMethods ?? []).includes(notification.method) && !notification.params && options?.relatedRequestId === void 0) {
       if (this._pendingDebouncedNotifications.has(notification.method)) return;
       this._pendingDebouncedNotifications.add(notification.method);
       Promise.resolve().then(() => {
@@ -19885,6 +19914,8 @@ var Protocol = class {
       return maybeHandler(parsed.data, ctx);
     };
     else throw new TypeError("setRequestHandler: handler is required");
+    if (typeof schemasOrHandler === "function") this._customSchemaRequestMethods.delete(method);
+    else this._customSchemaRequestMethods.add(method);
     this._requestHandlers.set(method, this._wrapHandler(method, stored));
   }
   /**
@@ -19914,6 +19945,7 @@ var Protocol = class {
   */
   removeRequestHandler(method) {
     this._requestHandlers.delete(method);
+    this._customSchemaRequestMethods.delete(method);
   }
   /**
   * Asserts that a request handler has not already been set for the given method, in preparation for a new one being automatically installed.
@@ -19991,7 +20023,8 @@ function manualInputRequiredValue(decoded) {
   return {
     resultType: "input_required",
     inputRequests: decoded.inputRequests,
-    ...decoded.requestState !== void 0 && { requestState: decoded.requestState }
+    ...decoded.requestState !== void 0 && { requestState: decoded.requestState },
+    ...decoded._meta !== void 0 && { _meta: decoded._meta }
   };
 }
 var require_content_type = /* @__PURE__ */ __commonJSMin(((exports) => {
@@ -27155,7 +27188,7 @@ var Ajv = import_ajv.Ajv;
 // node_modules/@modelcontextprotocol/server/dist/shimsNode.mjs
 import process2 from "node:process";
 
-// node_modules/@modelcontextprotocol/server/dist/mcp-DXXb3Vv3.mjs
+// node_modules/@modelcontextprotocol/server/dist/mcp-DIH4cS6P.mjs
 var COMPLETABLE_SYMBOL = Symbol.for("mcp.completable");
 function isCompletable(schema2) {
   return !!schema2 && typeof schema2 === "object" && COMPLETABLE_SYMBOL in schema2;
@@ -27220,7 +27253,7 @@ var StdioListenRouter = class {
   _serverCapabilities;
   /**
   * The serving instance's identity, stamped onto the graceful-close
-  * results' `_meta` (the spec's `SubscriptionsListenResultMeta` extends
+  * results' `_meta` (the spec's `SubscriptionsListenResultMetaObject` extends
   * `ResultMetaObject`). Handed over together with the capabilities.
   */
   _serverInfo;
@@ -27347,6 +27380,9 @@ function notificationToServerEvent(method, uri) {
         uri: uri ?? ""
       };
   }
+}
+function supportsScopeChallengeResolver(transport) {
+  return typeof transport === "object" && transport !== null && "setScopeChallengeResolver" in transport && typeof transport.setScopeChallengeResolver === "function";
 }
 var DEFAULT_LEGACY_SHIM_MAX_ROUNDS = 8;
 var DEFAULT_LEGACY_SHIM_ROUND_TIMEOUT_MS = 6e5;
@@ -27548,6 +27584,11 @@ var Server = class extends Protocol {
     this.setNotificationHandler("notifications/initialized", () => this.oninitialized?.());
     if (modernProtocolVersions(this._supportedProtocolVersions).length > 0) this.setRequestHandler("server/discover", () => this._ondiscover());
     if (this._capabilities.logging) this._registerLoggingHandler();
+  }
+  /** Attaches to the given transport; rejects while this instance is connected to another one. */
+  async connect(transport) {
+    if (this.transport !== void 0) throw new SdkError(SdkErrorCode.AlreadyConnected, "Use a separate Server instance per connection: this instance is already connected to a transport. To connect it to a new transport, call close() first.");
+    await super.connect(transport);
   }
   /**
   * Registers the built-in `logging/setLevel` request handler.
@@ -28102,21 +28143,41 @@ var Server = class extends Protocol {
 function discoverAdvertisedCapabilities(capabilities) {
   return { ...capabilities };
 }
+function toolInputElementCount(value, max) {
+  let count = 0;
+  const stack = [value];
+  while (stack.length > 0) {
+    const node = stack.pop();
+    if (node === null || typeof node !== "object") continue;
+    if (Array.isArray(node)) for (const child of node) {
+      if (++count > max) return count;
+      if (child !== null && typeof child === "object") stack.push(child);
+    }
+    else for (const key in node) {
+      if (!Object.prototype.hasOwnProperty.call(node, key)) continue;
+      if (++count > max) return count;
+      const child = node[key];
+      if (child !== null && typeof child === "object") stack.push(child);
+    }
+  }
+  return count;
+}
+function resolveMaxToolInputElements(value) {
+  if (value === void 0 || value === Infinity) return void 0;
+  if (typeof value !== "number" || Number.isNaN(value) || value < 1) throw new RangeError(`maxToolInputElements must be a number of at least 1, or Infinity, got ${String(value)}`);
+  return value;
+}
 var McpServer = class {
   /**
   * The underlying {@linkcode Server} instance, useful for advanced operations like sending notifications.
   */
   server;
+  _maxToolInputElements;
   _registeredResources = {};
   _registeredResourceTemplates = {};
   _registeredTools = {};
   _registeredPrompts = {};
-  /**
-  * Per-tool JSON-converted `inputSchema`, memoized so the SEP-2243
-  * registration-time scan and the pre-dispatch validation step share one
-  * conversion instead of paying it twice per request under the
-  * per-request-factory `createMcpHandler` model.
-  */
+  /** Per-tool JSON-converted `inputSchema`, filled on first use by `toolInputSchemaJson()`. */
   _toolInputSchemaJson = {};
   /**
   * The JSON-serialized `inputSchema` of a registered tool, or `undefined`
@@ -28141,6 +28202,7 @@ var McpServer = class {
   }
   constructor(serverInfo, options) {
     this.server = new Server(serverInfo, options);
+    this._maxToolInputElements = resolveMaxToolInputElements(options?.maxToolInputElements);
     if (options?.capabilities?.tools) this.setToolRequestHandlers();
     if (options?.capabilities?.resources) this.setResourceRequestHandlers();
     if (options?.capabilities?.prompts) this.setPromptRequestHandlers();
@@ -28158,6 +28220,7 @@ var McpServer = class {
   * ```
   */
   async connect(transport) {
+    if (supportsScopeChallengeResolver(transport)) transport.setScopeChallengeResolver((context) => this.resolveScopeChallenge(context));
     return await this.server.connect(transport);
   }
   /**
@@ -28166,6 +28229,41 @@ var McpServer = class {
   async close() {
     await this.server.close();
   }
+  /** @internal */
+  resolveScopeChallenge = (context) => {
+    switch (context.request.method) {
+      case "tools/call": {
+        const toolName = context.request.params?.name;
+        if (typeof toolName !== "string") return;
+        const tool = this._registeredTools[toolName];
+        if (tool === void 0 || !tool.enabled) return;
+        return tool.scopeChallenge?.(context);
+      }
+      case "resources/read": {
+        const resourceUri = context.request.params?.uri;
+        if (typeof resourceUri !== "string") return;
+        let uri;
+        try {
+          uri = new URL(resourceUri);
+        } catch {
+          return;
+        }
+        const resource = this._registeredResources[uri.toString()];
+        if (resource !== void 0) return resource.enabled ? resource.scopeChallenge?.(context) : void 0;
+        for (const template of Object.values(this._registeredResourceTemplates)) if (template.resourceTemplate.uriTemplate.match(uri.toString())) return template.enabled ? template.scopeChallenge?.(context) : void 0;
+        return;
+      }
+      case "prompts/get": {
+        const promptName = context.request.params?.name;
+        if (typeof promptName !== "string") return;
+        const prompt = this._registeredPrompts[promptName];
+        if (prompt === void 0 || !prompt.enabled) return;
+        return prompt.scopeChallenge?.(context);
+      }
+      default:
+        return;
+    }
+  };
   _toolHandlersInitialized = false;
   setToolRequestHandlers() {
     if (this._toolHandlersInitialized) return;
@@ -28177,7 +28275,7 @@ var McpServer = class {
         name,
         title: tool.title,
         description: tool.description,
-        inputSchema: tool.inputSchema ? standardSchemaToJsonSchema(tool.inputSchema, "input") : EMPTY_OBJECT_JSON_SCHEMA,
+        inputSchema: tool.inputSchema ? convertListedInputSchema(name, tool.inputSchema) : EMPTY_OBJECT_JSON_SCHEMA,
         annotations: tool.annotations,
         icons: tool.icons,
         execution: tool.execution,
@@ -28222,6 +28320,7 @@ var McpServer = class {
   * Validates tool input arguments against the tool's input schema.
   */
   async validateToolInput(tool, args, toolName) {
+    if (this._maxToolInputElements !== void 0 && toolInputElementCount(args, this._maxToolInputElements) > this._maxToolInputElements) throw new ProtocolError(ProtocolErrorCode.InvalidParams, `Invalid arguments for tool ${toolName}: arguments contain more than the maximum of ${this._maxToolInputElements} elements`);
     if (!tool.inputSchema) return;
     const parseResult = await validateStandardSchema(tool.inputSchema, args ?? {});
     if (!parseResult.success) throw new ProtocolError(ProtocolErrorCode.InvalidParams, `Input validation error: Invalid arguments for tool ${toolName}: ${parseResult.error}`);
@@ -28332,7 +28431,10 @@ var McpServer = class {
       }
       for (const template of Object.values(this._registeredResourceTemplates)) {
         const variables = template.resourceTemplate.uriTemplate.match(uri.toString());
-        if (variables) return attachCacheHintFallback(await template.readCallback(uri, variables, ctx), template.cacheHint);
+        if (variables) {
+          if (!template.enabled) throw new ProtocolError(ProtocolErrorCode.InvalidParams, `Resource template ${template.resourceTemplate.uriTemplate} disabled`);
+          return attachCacheHintFallback(await template.readCallback(uri, variables, ctx), template.cacheHint);
+        }
       }
       throw new ResourceNotFoundError(request.params.uri);
     });
@@ -28363,36 +28465,32 @@ var McpServer = class {
     this._promptHandlersInitialized = true;
   }
   registerResource(name, uriOrTemplate, config2, readCallback) {
-    const cacheHint = config2.cacheHint;
-    let metadata = config2;
-    if (cacheHint !== void 0) {
-      assertValidCacheHint(cacheHint, `resource ${name}`);
-      const rest = { ...config2 };
-      delete rest.cacheHint;
-      metadata = rest;
-    }
+    const { cacheHint, scopeChallenge, ...resourceMetadata } = config2;
+    const metadata = resourceMetadata;
+    if (cacheHint !== void 0) assertValidCacheHint(cacheHint, `resource ${name}`);
     if (typeof uriOrTemplate === "string") {
       if (this._registeredResources[uriOrTemplate]) throw new Error(`Resource ${uriOrTemplate} is already registered`);
-      const registeredResource = this._createRegisteredResource(name, config2.title, uriOrTemplate, metadata, readCallback);
+      const registeredResource = this._createRegisteredResource(name, config2.title, uriOrTemplate, metadata, scopeChallenge, readCallback);
       if (cacheHint !== void 0) registeredResource.cacheHint = cacheHint;
       this.setResourceRequestHandlers();
       this.sendResourceListChanged();
       return registeredResource;
     } else {
       if (this._registeredResourceTemplates[name]) throw new Error(`Resource template ${name} is already registered`);
-      const registeredResourceTemplate = this._createRegisteredResourceTemplate(name, config2.title, uriOrTemplate, metadata, readCallback);
+      const registeredResourceTemplate = this._createRegisteredResourceTemplate(name, config2.title, uriOrTemplate, metadata, scopeChallenge, readCallback);
       if (cacheHint !== void 0) registeredResourceTemplate.cacheHint = cacheHint;
       this.setResourceRequestHandlers();
       this.sendResourceListChanged();
       return registeredResourceTemplate;
     }
   }
-  _createRegisteredResource(name, title, uri, metadata, readCallback) {
+  _createRegisteredResource(name, title, uri, metadata, scopeChallenge, readCallback) {
     const registeredResource = {
       name,
       title,
       metadata,
       readCallback,
+      scopeChallenge,
       enabled: true,
       disable: () => registeredResource.update({ enabled: false }),
       enable: () => registeredResource.update({ enabled: true }),
@@ -28406,6 +28504,7 @@ var McpServer = class {
         if (updates.title !== void 0) registeredResource.title = updates.title;
         if (updates.metadata !== void 0) registeredResource.metadata = updates.metadata;
         if (updates.callback !== void 0) registeredResource.readCallback = updates.callback;
+        if (updates.scopeChallenge !== void 0) registeredResource.scopeChallenge = updates.scopeChallenge === null ? void 0 : updates.scopeChallenge;
         if (updates.enabled !== void 0) registeredResource.enabled = updates.enabled;
         this.sendResourceListChanged();
       }
@@ -28413,12 +28512,13 @@ var McpServer = class {
     this._registeredResources[uri] = registeredResource;
     return registeredResource;
   }
-  _createRegisteredResourceTemplate(name, title, template, metadata, readCallback) {
+  _createRegisteredResourceTemplate(name, title, template, metadata, scopeChallenge, readCallback) {
     const registeredResourceTemplate = {
       resourceTemplate: template,
       title,
       metadata,
       readCallback,
+      scopeChallenge,
       enabled: true,
       disable: () => registeredResourceTemplate.update({ enabled: false }),
       enable: () => registeredResourceTemplate.update({ enabled: true }),
@@ -28432,6 +28532,7 @@ var McpServer = class {
         if (updates.template !== void 0) registeredResourceTemplate.resourceTemplate = updates.template;
         if (updates.metadata !== void 0) registeredResourceTemplate.metadata = updates.metadata;
         if (updates.callback !== void 0) registeredResourceTemplate.readCallback = updates.callback;
+        if (updates.scopeChallenge !== void 0) registeredResourceTemplate.scopeChallenge = updates.scopeChallenge === null ? void 0 : updates.scopeChallenge;
         if (updates.enabled !== void 0) registeredResourceTemplate.enabled = updates.enabled;
         this.sendResourceListChanged();
       }
@@ -28441,7 +28542,7 @@ var McpServer = class {
     if (Array.isArray(variableNames) && variableNames.some((v) => !!template.completeCallback(v))) this.setCompletionRequestHandler();
     return registeredResourceTemplate;
   }
-  _createRegisteredPrompt(name, title, description, argsSchema, callback, icons, _meta) {
+  _createRegisteredPrompt(name, title, description, argsSchema, callback, icons, scopeChallenge, _meta) {
     let currentArgsSchema = argsSchema;
     let currentCallback = callback;
     const registeredPrompt = {
@@ -28449,6 +28550,7 @@ var McpServer = class {
       description,
       argsSchema,
       icons,
+      scopeChallenge,
       _meta,
       handler: createPromptHandler(name, argsSchema, callback),
       enabled: true,
@@ -28463,6 +28565,7 @@ var McpServer = class {
         if (updates.title !== void 0) registeredPrompt.title = updates.title;
         if (updates.description !== void 0) registeredPrompt.description = updates.description;
         if (updates.icons !== void 0) registeredPrompt.icons = updates.icons;
+        if (updates.scopeChallenge !== void 0) registeredPrompt.scopeChallenge = updates.scopeChallenge === null ? void 0 : updates.scopeChallenge;
         if (updates._meta !== void 0) registeredPrompt._meta = updates._meta;
         let needsHandlerRegen = false;
         if (updates.argsSchema !== void 0) {
@@ -28490,25 +28593,25 @@ var McpServer = class {
     }
     return registeredPrompt;
   }
-  _createRegisteredTool(name, title, description, inputSchema, outputSchema, annotations, icons, execution, _meta, handler) {
+  _createRegisteredTool(name, title, description, inputSchema, outputSchema, annotations, icons, execution, scopeChallenge, _meta, handler) {
     validateAndWarnToolName(name);
-    if (inputSchema !== void 0) try {
-      const json3 = standardSchemaToJsonSchema(inputSchema, "input");
-      this._toolInputSchemaJson[name] = json3;
-      const scan = scanXMcpHeaderDeclarations(json3);
-      if (!scan.valid) console.warn(`[mcp-sdk] tool '${name}' carries an invalid x-mcp-header declaration and will be excluded by conforming Streamable HTTP clients: ${scan.reason}`);
-    } catch {
-    }
     let currentHandler = handler;
+    let outputSchemaJson;
     const registeredTool = {
       title,
       description,
       inputSchema,
       outputSchema,
-      outputSchemaJson: convertOutputSchemaJson(outputSchema),
+      get outputSchemaJson() {
+        return outputSchemaJson ??= convertOutputSchemaJson(registeredTool.outputSchema);
+      },
+      set outputSchemaJson(value) {
+        outputSchemaJson = value;
+      },
       annotations,
       icons,
       execution,
+      scopeChallenge,
       _meta,
       handler,
       executor: createToolExecutor(inputSchema, handler),
@@ -28547,6 +28650,7 @@ var McpServer = class {
         }
         if (updates.annotations !== void 0) registeredTool.annotations = updates.annotations;
         if (updates.icons !== void 0) registeredTool.icons = updates.icons;
+        if (updates.scopeChallenge !== void 0) registeredTool.scopeChallenge = updates.scopeChallenge === null ? void 0 : updates.scopeChallenge;
         if (updates._meta !== void 0) registeredTool._meta = updates._meta;
         if (updates.enabled !== void 0) registeredTool.enabled = updates.enabled;
         this.sendToolListChanged();
@@ -28559,13 +28663,13 @@ var McpServer = class {
   }
   registerTool(name, config2, cb) {
     if (this._registeredTools[name]) throw new Error(`Tool ${name} is already registered`);
-    const { title, description, inputSchema, outputSchema, annotations, icons, _meta } = config2;
-    return this._createRegisteredTool(name, title, description, normalizeRawShapeSchema(inputSchema), normalizeRawShapeSchema(outputSchema), annotations, icons, void 0, _meta, cb);
+    const { title, description, inputSchema, outputSchema, annotations, icons, scopeChallenge, _meta } = config2;
+    return this._createRegisteredTool(name, title, description, normalizeRawShapeSchema(inputSchema), normalizeRawShapeSchema(outputSchema), annotations, icons, void 0, scopeChallenge, _meta, cb);
   }
   registerPrompt(name, config2, cb) {
     if (this._registeredPrompts[name]) throw new Error(`Prompt ${name} is already registered`);
-    const { title, description, argsSchema, icons, _meta } = config2;
-    const registeredPrompt = this._createRegisteredPrompt(name, title, description, normalizeRawShapeSchema(argsSchema), cb, icons, _meta);
+    const { title, description, argsSchema, icons, scopeChallenge, _meta } = config2;
+    const registeredPrompt = this._createRegisteredPrompt(name, title, description, normalizeRawShapeSchema(argsSchema), cb, icons, scopeChallenge, _meta);
     this.setPromptRequestHandlers();
     this.sendPromptListChanged();
     return registeredPrompt;
@@ -28630,6 +28734,12 @@ var EMPTY_OBJECT_JSON_SCHEMA = {
   type: "object",
   properties: {}
 };
+function convertListedInputSchema(name, inputSchema) {
+  const json3 = standardSchemaToJsonSchema(inputSchema, "input");
+  const scan = scanXMcpHeaderDeclarations(json3);
+  if (!scan.valid) console.warn(`[mcp-sdk] tool '${name}' carries an invalid x-mcp-header declaration and will be excluded by conforming Streamable HTTP clients: ${scan.reason}`);
+  return json3;
+}
 function convertOutputSchemaJson(outputSchema) {
   if (outputSchema === void 0) return void 0;
   try {
@@ -28642,7 +28752,7 @@ function createPromptHandler(name, argsSchema, callback) {
   if (argsSchema) {
     const typedCallback = callback;
     return async (args, ctx) => {
-      const parseResult = await validateStandardSchema(argsSchema, args);
+      const parseResult = await validateStandardSchema(argsSchema, args ?? {});
       if (!parseResult.success) throw new ProtocolError(ProtocolErrorCode.InvalidParams, `Invalid arguments for prompt ${name}: ${parseResult.error}`);
       return typedCallback(parseResult.data, ctx);
     };
@@ -28676,7 +28786,11 @@ function unwrapOptionalSchema(schema2) {
   return schema2.def?.innerType ?? schema2;
 }
 
+// node_modules/@modelcontextprotocol/server/dist/index.mjs
+var DEFAULT_MAX_REQUEST_BODY_SIZE = 4 * 1024 * 1024;
+
 // node_modules/@modelcontextprotocol/server/dist/stdio.mjs
+var swallowsErrorsAfterClose = Symbol("swallowsErrorsAfterClose");
 var StdioServerTransport = class {
   _readBuffer;
   _started = false;
@@ -28703,7 +28817,12 @@ var StdioServerTransport = class {
     this.onerror?.(error51);
   };
   _onstdouterror = (error51) => {
+    if (this._closed) return;
     this.onerror?.(error51);
+    this.close().catch(() => {
+    });
+  };
+  _onstdinclose = () => {
     this.close().catch(() => {
     });
   };
@@ -28713,8 +28832,12 @@ var StdioServerTransport = class {
   async start() {
     if (this._started) throw new Error("StdioServerTransport already started! If using Server class, note that connect() calls start() automatically.");
     this._started = true;
+    for (const listener of this._stdout.listeners("error")) if (listener[swallowsErrorsAfterClose]) this._stdout.off("error", listener);
+    if (this._stdin.readableEnded || this._stdin.destroyed) setImmediate(this._onstdinclose);
     this._stdin.on("data", this._ondata);
     this._stdin.on("error", this._onerror);
+    this._stdin.on("end", this._onstdinclose);
+    this._stdin.on("close", this._onstdinclose);
     this._stdout.on("error", this._onstdouterror);
   }
   processReadBuffer() {
@@ -28731,7 +28854,9 @@ var StdioServerTransport = class {
     this._closed = true;
     this._stdin.off("data", this._ondata);
     this._stdin.off("error", this._onerror);
-    this._stdout.off("error", this._onstdouterror);
+    this._stdin.off("end", this._onstdinclose);
+    this._stdin.off("close", this._onstdinclose);
+    this._onstdouterror[swallowsErrorsAfterClose] = true;
     if (this._stdin.listenerCount("data") === 0) this._stdin.pause();
     this._readBuffer.clear();
     this.onclose?.();
@@ -29008,6 +29133,7 @@ function serveStdio(factory, options = {}) {
         return;
       }
       if (state.era === "modern" && await tryServeListen(message)) return;
+      if (isTornDown()) return;
       state.instance.channel.deliver(message);
       return;
     }
@@ -29074,6 +29200,7 @@ function serveStdio(factory, options = {}) {
           };
         }
         if (await tryServeListen(message)) return;
+        if (isTornDown()) return;
         state.instance.channel.deliver(message, { classification: opening.classification });
         return;
       case "legacy": {
@@ -35629,8 +35756,14 @@ function renderBlockForPreview(block, options) {
 }
 
 // dist/server.js
+async function reportProgress(ctx, progress) {
+  const progressToken = ctx.mcpReq._meta?.progressToken;
+  if (progressToken === void 0 || ctx.mcpReq.signal.aborted)
+    return;
+  await ctx.mcpReq.notify({ method: "notifications/progress", params: { progressToken, progress, total: 2 } }).catch(() => void 0);
+}
 function buildServer() {
-  const server = new McpServer({ name: "report-renderer", version: "2.2.0" }, { capabilities: { tools: {} } });
+  const server = new McpServer({ name: "report-renderer", version: "2.3.0" }, { capabilities: { tools: {} } });
   server.registerTool("validate_ir", {
     description: "Validate a .report.md IR file for syntax and semantic correctness",
     inputSchema: external_exports.object({
@@ -35655,8 +35788,11 @@ function buildServer() {
       theme_override: external_exports.string().optional().describe("Override theme name"),
       bundle: external_exports.boolean().optional().describe("Inline CDN resources")
     })
-  }, async ({ ir_content, output_path, theme_override, bundle }) => {
+  }, async ({ ir_content, output_path, theme_override, bundle }, ctx) => {
+    await reportProgress(ctx, 1);
+    ctx.mcpReq.signal.throwIfAborted();
     const result = await handleRenderReport({ ir_content, output_path, theme_override, bundle });
+    await reportProgress(ctx, 2);
     return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
   });
   server.registerTool("preview_section", {
@@ -35678,7 +35814,7 @@ export {
 };
 /*! Bundled license information:
 
-@modelcontextprotocol/server/dist/src-CX2iR2pK.mjs:
+@modelcontextprotocol/server/dist/src-Cqbh3MYc.mjs:
   (*!
   * content-type
   * Copyright(c) 2015 Douglas Christopher Wilson

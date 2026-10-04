@@ -15,6 +15,7 @@ import ssl
 import sys
 from pathlib import Path
 from typing import Any
+from collections.abc import Callable
 
 
 def configure_model_download_tls() -> None:
@@ -56,6 +57,7 @@ def transcribe_file(
     meeting_id: str = "",
     model_name: str = "base",
     language: str | None = None,
+    on_progress: Callable[[int], None] | None = None,
 ) -> dict[str, Any]:
     path = Path(audio_path)
     if not path.exists() or not path.is_file():
@@ -67,6 +69,8 @@ def transcribe_file(
         raise RuntimeError("missing_whisper") from exc
 
     cache_dir = os.environ.get("XIAOK_MEETING_WHISPER_CACHE")
+    if on_progress:
+        on_progress(1)
     configure_model_download_tls()
     try:
         model = whisper.load_model(model_name, download_root=cache_dir)
@@ -75,6 +79,8 @@ def transcribe_file(
             raise RuntimeError("whisper_model_download_ssl_failed") from exc
         raise
     with contextlib.redirect_stdout(sys.stderr):
+        if on_progress:
+            on_progress(2)
         result = model.transcribe(
             str(path),
             fp16=False,
@@ -98,6 +104,8 @@ def transcribe_file(
     if not text and segments:
         text = " ".join(segment["text"] for segment in segments)
 
+    if on_progress:
+        on_progress(3)
     return {
         "meetingId": meeting_id,
         "engine": "openai-whisper",
@@ -142,13 +150,17 @@ def run_cli(argv: list[str]) -> int:
 
 def run_mcp_server() -> None:
     try:
-        from mcp.server import FastMCP  # type: ignore
+        from mcp.server import MCPServer  # type: ignore
+        from mcp.server.mcpserver import Context  # type: ignore
+        import anyio
         from pydantic import BaseModel, Field  # type: ignore
     except Exception as exc:
         raise RuntimeError("missing_mcp_runtime") from exc
 
-    mcp = FastMCP(
+    globals()["Context"] = Context
+    mcp = MCPServer(
         name="meeting-transcriber",
+        version="0.2.0",
         instructions="Local microphone-recording transcription for xiaok desktop.",
     )
 
@@ -168,13 +180,18 @@ def run_mcp_server() -> None:
     globals()["TranscriptionResult"] = TranscriptionResult
 
     @mcp.tool()
-    def transcribe_file_tool(
+    async def transcribe_file_tool(
         audio_path: str,
+        ctx: Context,
         meeting_id: str = "",
         model: str = "base",
         language: str | None = None,
     ) -> TranscriptionResult:
-        payload = transcribe_file(audio_path, meeting_id=meeting_id, model_name=model, language=language)
+        await ctx.report_progress(0)
+        def transcribe() -> dict[str, Any]:
+            return transcribe_file(audio_path, meeting_id=meeting_id, model_name=model, language=language,
+                on_progress=lambda phase: anyio.from_thread.run(ctx.report_progress, phase))
+        payload = await anyio.to_thread.run_sync(transcribe)
         return TranscriptionResult(**payload)
 
     mcp.run()

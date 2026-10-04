@@ -1,6 +1,6 @@
 {
   "name": "kai-infinity-canvas",
-  "version": "0.1.0",
+  "version": "0.3.0",
   "private": true,
   "type": "module",
   "scripts": {
@@ -11,7 +11,7 @@
   "dependencies": {
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
-    "fractional-indexing-jittered": "^3.0.0",
+    "fractional-indexing-jittered": "1.1.0",
     "tldraw": "^3.13.3"
   },
   "devDependencies": {

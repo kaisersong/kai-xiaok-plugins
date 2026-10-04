@@ -7,7 +7,8 @@ import sys
 from pathlib import Path
 from typing import Any
 
-from mcp.server.mcpserver import MCPServer
+from mcp.server.mcpserver import MCPServer, Context
+import anyio
 from pydantic import BaseModel, Field
 
 # Resolve plugin root (parent of mcp-servers/slide-renderer/)
@@ -32,6 +33,7 @@ from preset_support import preset_support_tier, load_preset_support_matrix
 
 mcp = MCPServer(
     name="slide-renderer",
+    version="3.4.0",
     instructions="Deterministic HTML rendering from BRIEF.json IR",
 )
 
@@ -116,7 +118,6 @@ def validate_brief(brief_json: str) -> ValidationResult:
         )
 
 
-@mcp.tool()
 def render_slide(brief_json: str, output_path: str | None = None) -> RenderResult:
     """Render HTML slide deck from BRIEF.json.
 
@@ -222,6 +223,15 @@ def render_slide(brief_json: str, output_path: str | None = None) -> RenderResul
             quality_tier="",
             errors=[f"Unexpected error: {e}"]
         )
+
+
+@mcp.tool(name="render_slide")
+async def render_slide_tool(brief_json: str, ctx: Context, output_path: str | None = None) -> RenderResult:
+    """Render HTML slide deck from BRIEF.json, reporting render stages."""
+    await ctx.report_progress(1, total=2)
+    result = await anyio.to_thread.run_sync(render_slide, brief_json, output_path)
+    await ctx.report_progress(2, total=2)
+    return result
 
 
 # Descriptions for presets, derived from style-index.md "Vibe + Best For"

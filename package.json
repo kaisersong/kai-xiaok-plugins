@@ -1,0 +1,7 @@
+{
+  "name": "kai-xiaok-plugins-validation",
+  "private": true,
+  "type": "module",
+  "scripts": { "test:mcp": "node --test tests/mcp-events.test.mjs" },
+  "devDependencies": { "@modelcontextprotocol/client": "2.3.0" }
+}

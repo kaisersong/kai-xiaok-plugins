@@ -97,14 +97,14 @@ def test_requirements_include_mcp_server_runtime():
         PLUGIN_ROOT / "mcp-servers" / "meeting-transcriber" / "requirements.txt"
     ).read_text(encoding="utf-8").splitlines()
 
-    assert "mcp==1.27.1" in requirements
+    assert "mcp==2.3.0" in requirements
     assert "pydantic==2.13.4" in requirements
 
 
 def test_mcp_tool_annotations_are_resolvable(monkeypatch):
     instances = []
 
-    class FakeFastMCP:
+    class FakeMCPServer:
         def __init__(self, **_kwargs):
             self.ran = False
             instances.append(self)
@@ -120,10 +120,40 @@ def test_mcp_tool_annotations_are_resolvable(monkeypatch):
             self.ran = True
 
     fake_server_module = types.ModuleType("mcp.server")
-    fake_server_module.FastMCP = FakeFastMCP
+    fake_server_module.MCPServer = FakeMCPServer
     monkeypatch.setitem(sys.modules, "mcp.server", fake_server_module)
+
+    fake_context_module = types.ModuleType("mcp.server.mcpserver")
+    fake_context_module.Context = object
+    monkeypatch.setitem(sys.modules, "mcp.server.mcpserver", fake_context_module)
 
     run_mcp_server()
 
     assert len(instances) == 1
     assert instances[0].ran is True
+
+
+def test_real_mcp_handler_reports_threaded_transcription_stages(tmp_path, monkeypatch):
+    import anyio
+    from mcp import Client
+    from mcp.server import MCPServer
+
+    instances = []
+    monkeypatch.setattr(MCPServer, "run", lambda self: instances.append(self))
+    audio_path = tmp_path / "meeting.wav"
+    audio_path.write_bytes(b"RIFF....WAVE")
+    monkeypatch.setitem(sys.modules, "whisper", types.SimpleNamespace(load_model=lambda *a, **kw: FakeModel()))
+    run_mcp_server()
+
+    async def verify():
+        progress = []
+        async def report(value, total, message):
+            progress.append(value)
+        async with Client(instances[0]) as client:
+            result = await client.call_tool("transcribe_file_tool", {
+                "audio_path": str(audio_path), "meeting_id": "threaded-test",
+            }, progress_callback=report)
+            assert not result.is_error
+            assert result.structured_content["meetingId"] == "threaded-test"
+        assert progress == [0, 1, 2, 3]
+    anyio.run(verify)

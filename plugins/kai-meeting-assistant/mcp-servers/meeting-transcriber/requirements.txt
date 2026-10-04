@@ -1,5 +1,5 @@
 openai-whisper
 truststore
 certifi
-mcp==1.27.1
+mcp==2.3.0
 pydantic==2.13.4

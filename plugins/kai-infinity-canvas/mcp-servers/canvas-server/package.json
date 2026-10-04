@@ -1,0 +1,16 @@
+{
+  "name": "@xiaok/canvas-server",
+  "version": "0.3.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build:bundle": "esbuild server.mjs --bundle --platform=node --format=esm --outfile=dist/server.bundle.js --external:node:*"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/server": "2.3.0",
+    "fractional-indexing-jittered": "1.1.0"
+  },
+  "devDependencies": {
+    "esbuild": "^0.25.0"
+  }
+}

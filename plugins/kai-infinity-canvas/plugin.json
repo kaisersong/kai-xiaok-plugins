@@ -1,6 +1,6 @@
 {
   "name": "kai-infinity-canvas",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "tldraw-powered local infinite canvas for xiaok",
   "platforms": ["darwin", "linux", "win32"],
   "interface": {
@@ -16,7 +16,8 @@
       "name": "canvas-server",
       "type": "stdio",
       "command": "node",
-      "args": ["mcp-servers/canvas-server/server.mjs"]
+      "args": ["mcp-servers/canvas-server/dist/server.bundle.js"],
+      "protocol": { "mode": "modern", "version": "2026-07-28" }
     }
   ],
   "toolPermissions": {

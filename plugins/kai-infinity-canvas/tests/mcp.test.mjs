@@ -7,7 +7,7 @@ import { fileURLToPath } from 'node:url'
 
 const __dirname = fileURLToPath(new URL('.', import.meta.url))
 const PLUGIN_ROOT = resolve(__dirname, '..')
-const MCP_SERVER = join(PLUGIN_ROOT, 'mcp-servers', 'canvas-server', 'server.mjs')
+const MCP_SERVER = join(PLUGIN_ROOT, 'mcp-servers', 'canvas-server', 'dist', 'server.bundle.js')
 const TEST_DIR = join(process.env.TMPDIR || '/tmp', `kai-canvas-test-${Date.now()}`)
 
 function callMCP(messages) {
@@ -35,7 +35,10 @@ function callMCP(messages) {
         setTimeout(() => { child.kill(); resolvePromise(responses) }, 500)
         return
       }
-      child.stdin.write(JSON.stringify(messages[msgIndex]) + '\n')
+      const message = messages[msgIndex]
+      if (message.method === 'initialize') message.params = { protocolVersion: '2025-11-25', capabilities: {}, clientInfo: { name: 'canvas-test', version: '1' }, ...message.params }
+      child.stdin.write(JSON.stringify(message) + '\n')
+      if (message.method === 'initialize') child.stdin.write(JSON.stringify({ jsonrpc: '2.0', method: 'notifications/initialized' }) + '\n')
       msgIndex++
       setTimeout(sendNext, 200)
     }

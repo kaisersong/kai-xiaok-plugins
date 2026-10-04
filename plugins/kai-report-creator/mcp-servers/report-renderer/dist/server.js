@@ -5,8 +5,14 @@ import { handleValidateIR } from './tools/validate-ir.js';
 import { handleListThemes } from './tools/list-themes.js';
 import { handleRenderReport } from './tools/render-report.js';
 import { handlePreviewSection } from './tools/preview-section.js';
+async function reportProgress(ctx, progress) {
+    const progressToken = ctx.mcpReq._meta?.progressToken;
+    if (progressToken === undefined || ctx.mcpReq.signal.aborted)
+        return;
+    await ctx.mcpReq.notify({ method: 'notifications/progress', params: { progressToken, progress, total: 2 } }).catch(() => undefined);
+}
 export function buildServer() {
-    const server = new McpServer({ name: 'report-renderer', version: '2.2.0' }, { capabilities: { tools: {} } });
+    const server = new McpServer({ name: 'report-renderer', version: '2.3.0' }, { capabilities: { tools: {} } });
     server.registerTool('validate_ir', {
         description: 'Validate a .report.md IR file for syntax and semantic correctness',
         inputSchema: z.object({
@@ -31,8 +37,11 @@ export function buildServer() {
             theme_override: z.string().optional().describe('Override theme name'),
             bundle: z.boolean().optional().describe('Inline CDN resources'),
         }),
-    }, async ({ ir_content, output_path, theme_override, bundle }) => {
+    }, async ({ ir_content, output_path, theme_override, bundle }, ctx) => {
+        await reportProgress(ctx, 1);
+        ctx.mcpReq.signal.throwIfAborted();
         const result = await handleRenderReport({ ir_content, output_path, theme_override, bundle });
+        await reportProgress(ctx, 2);
         return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] };
     });
     server.registerTool('preview_section', {

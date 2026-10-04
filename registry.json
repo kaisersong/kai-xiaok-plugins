@@ -18,7 +18,7 @@
       ],
       "repo": "kaisersong/kai-xiaok-plugins",
       "path": "plugins/kai-slide-creator",
-      "version": "3.3.0",
+      "version": "3.4.0",
       "dependencies": {
         "runtime": "python3",
         "install": "pip3 install -r mcp-servers/slide-renderer/requirements.txt",
@@ -41,10 +41,10 @@
       ],
       "repo": "kaisersong/kai-xiaok-plugins",
       "path": "plugins/kai-report-creator",
-      "version": "2.2.0",
+      "version": "2.4.0",
       "dependencies": {
         "runtime": "node",
-        "install": "cd mcp-servers/report-renderer && npm install && npm run build",
+        "install": "cd mcp-servers/report-renderer && npm ci && npm run build && npm run build:bundle",
         "test": "cd mcp-servers/report-renderer && npx vitest run"
       }
     },
@@ -66,7 +66,7 @@
       ],
       "repo": "kaisersong/kai-xiaok-plugins",
       "path": "plugins/kai-meeting-assistant",
-      "version": "0.1.0",
+      "version": "0.2.0",
       "platforms": [
         "darwin",
         "linux",
@@ -197,7 +197,7 @@
       ],
       "repo": "kaisersong/kai-xiaok-plugins",
       "path": "plugins/kai-infinity-canvas",
-      "version": "0.1.0",
+      "version": "0.3.0",
       "platforms": [
         "darwin",
         "linux",
@@ -205,7 +205,7 @@
       ],
       "dependencies": {
         "runtime": "node",
-        "install": "npm install && npm run build",
+        "install": "npm ci && npm run build && cd mcp-servers/canvas-server && npm ci && npm run build:bundle",
         "test": "node tests/mcp.test.mjs"
       }
     }

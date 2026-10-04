@@ -10,10 +10,10 @@ Versions below come from the current `plugin.json` manifests, checked on **Septe
 
 | Plugin | Version | Purpose | MCP server / runtime |
 |---|---|---|---|
-| [kai-slide-creator](plugins/kai-slide-creator) | 3.3.0 | Structured briefs to HTML presentations, with style presets and validation | slide-renderer / Python |
-| [kai-report-creator](plugins/kai-report-creator) | 2.3.0 | Structured report IR to HTML, with themes, cover layouts, and KPI quality gates | report-renderer / Node.js |
-| [kai-infinity-canvas](plugins/kai-infinity-canvas) | 0.2.0 | Local tldraw canvas, annotation, image insertion, and PNG/SVG export | canvas-server / Node.js |
-| [kai-meeting-assistant](plugins/kai-meeting-assistant) | 0.1.0 | Local Whisper file transcription fallback and meeting-summary skill | meeting-transcriber / Python |
+| [kai-slide-creator](plugins/kai-slide-creator) | 3.4.0 | Structured briefs to HTML presentations, with style presets and validation | slide-renderer / Python |
+| [kai-report-creator](plugins/kai-report-creator) | 2.4.0 | Structured report IR to HTML, with themes, cover layouts, and KPI quality gates | report-renderer / Node.js |
+| [kai-infinity-canvas](plugins/kai-infinity-canvas) | 0.3.0 | Local tldraw canvas, annotation, image insertion, and PNG/SVG export | canvas-server / Node.js |
+| [kai-meeting-assistant](plugins/kai-meeting-assistant) | 0.2.0 | Local Whisper file transcription fallback and meeting-summary skill | meeting-transcriber / Python |
 | [cua-computer-use](plugins/cua-computer-use) | 0.2.1 | Observe and operate macOS applications after user activation and permission setup | cua-driver / macOS only |
 
 ## Current Release Baseline
@@ -23,7 +23,6 @@ Versions below come from the current `plugin.json` manifests, checked on **Septe
 - Slide/report manifests declare modern MCP stdio with startup/call timeouts. Report uses `dist/server.bundle.js`; Python renderers need the matching packaged runtime and wheels.
 - CuaDriver explicitly uses the `legacy` adapter. Meeting transcription retains its MCP 1.x runtime. Protocol selection follows each manifest, not a blanket migration claim.
 - Desktop owns microphone capture, Sherpa-ONNX real-time ASR, user-configured Alibaba Cloud/Volcengine ASR, punctuation, model management, recording UI, and saved knowledge. The meeting plugin supplies Whisper fallback and a summary skill; it does not store user ASR keys.
-- CLI discovery's legacy `registry.json` still lists report **2.2.0** and canvas **0.1.0**. Current manifests and `registry-v2.json` list **2.3.0** and **0.2.0**. These are distinct index snapshots; check the installation path before treating a listed version as installed.
 
 ## Quick Install
 
@@ -180,3 +179,7 @@ Omitting `--commit` selects HEAD. Keep the chosen source commit explicit when th
 5. Align the plugin snapshot with Xiaok's sibling release tags; run Desktop packaging contracts and inspect the unsigned unpacked app before formal release.
 
 Use [Xiaok's release workflow](https://github.com/kaisersong/xiaok-cli/blob/master/.github/workflows/desktop-release.yml) and [packaging configuration](https://github.com/kaisersong/xiaok-cli/blob/master/desktop/electron-builder.json) as the integration contract. Local source, bundles, registry checks, and published release status are separate checks.
+
+MCP servers use the official 2.3.0 SDKs and protocol 2026-07-28. Tool catalog changes use `subscriptions/listen`; render/transcribe/insert/export stages report per-call progress. Old clients remain supported by the SDK. Canvas's MCP bundle is self-contained and independent of its frontend dependencies.
+
+Validation: `npm ci` at the repository root, build report-renderer and canvas-server bundles, then `MCP_TEST_PYTHON=/path/to/python npm run test:mcp`. The Python environment needs the slide-renderer requirements; the meeting stdio smoke test does not download a Whisper model. Desktop upgrades its managed MCP runtime to 2.3.0; a valid old import alone is insufficient.

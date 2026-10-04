@@ -46,6 +46,8 @@ const PLUGIN_SPECS = [
     steps: [
       { kind: 'npm_ci', cwd: '.' },
       { kind: 'npm_run', cwd: '.', script: 'build' },
+      { kind: 'npm_ci', cwd: 'mcp-servers/canvas-server' },
+      { kind: 'npm_run', cwd: 'mcp-servers/canvas-server', script: 'build:bundle' },
     ],
   },
   {
@@ -65,6 +67,7 @@ const PLUGIN_SPECS = [
     steps: [
       { kind: 'npm_ci', cwd: 'mcp-servers/report-renderer' },
       { kind: 'npm_run', cwd: 'mcp-servers/report-renderer', script: 'build' },
+      { kind: 'npm_run', cwd: 'mcp-servers/report-renderer', script: 'build:bundle' },
     ],
   },
   {
