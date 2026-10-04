@@ -4,13 +4,14 @@
   "plugins": [
     {
       "name": "cua-computer-use",
-      "display_name": "Computer Use for Mac",
-      "description": "通过 CUA Driver 在 macOS 上观察和操作本机应用",
+      "display_name": "Computer Use",
+      "description": "通过 CUA Driver 观察和操作本机 macOS / Windows 应用",
       "category": "local-automation",
       "keywords": [
         "computer-use",
         "cua",
         "macos",
+        "windows",
         "automation",
         "mcp",
         "本机自动化",
@@ -18,13 +19,14 @@
       ],
       "repo": "kaisersong/kai-xiaok-plugins",
       "path": "plugins/cua-computer-use",
-      "version": "0.2.1",
+      "version": "0.3.1",
       "platforms": [
-        "darwin"
+        "darwin",
+        "win32"
       ],
       "source": {
-        "commit": "d7dd2dca5018b89a126f6d74633b38778e9952f1",
-        "treeSha256": "2e9dbd792ab290667b3c10bf81651b1873e92d4c03b4c7ea3a561717e986ae18"
+        "commit": "56b9df72dfbc4541cab6032d4039e2e208b8be68",
+        "treeSha256": "42ec41de366189706459152129d531d7d04e5e5a91347e595f91c9b8c3846c2c"
       },
       "install": {
         "steps": [
@@ -54,15 +56,15 @@
       ],
       "repo": "kaisersong/kai-xiaok-plugins",
       "path": "plugins/kai-infinity-canvas",
-      "version": "0.2.0",
+      "version": "0.3.0",
       "platforms": [
         "darwin",
         "linux",
         "win32"
       ],
       "source": {
-        "commit": "d7dd2dca5018b89a126f6d74633b38778e9952f1",
-        "treeSha256": "abcfab7cd80615a4c856c61482469d214c8cc6aa6c216d6671590cd427f7450c"
+        "commit": "56b9df72dfbc4541cab6032d4039e2e208b8be68",
+        "treeSha256": "56316fc1bc96e9961fe3054b41be4b81e32d105cb61196498e1a745bf11628c6"
       },
       "install": {
         "steps": [
@@ -74,6 +76,15 @@
             "kind": "npm_run",
             "cwd": ".",
             "script": "build"
+          },
+          {
+            "kind": "npm_ci",
+            "cwd": "mcp-servers/canvas-server"
+          },
+          {
+            "kind": "npm_run",
+            "cwd": "mcp-servers/canvas-server",
+            "script": "build:bundle"
           }
         ]
       }
@@ -96,10 +107,10 @@
       ],
       "repo": "kaisersong/kai-xiaok-plugins",
       "path": "plugins/kai-meeting-assistant",
-      "version": "0.1.0",
+      "version": "0.2.0",
       "source": {
-        "commit": "d7dd2dca5018b89a126f6d74633b38778e9952f1",
-        "treeSha256": "c69f513fe2e754d81ab6f1daa57cb5b021cf8b015da12e2b4bad4da45fb6ca7c"
+        "commit": "56b9df72dfbc4541cab6032d4039e2e208b8be68",
+        "treeSha256": "2a1b7028b3bda3e38c5e077c03c389c42cfc8f44482e99c4a94c072ce9ee6c68"
       },
       "install": {
         "steps": [
@@ -130,10 +141,10 @@
       ],
       "repo": "kaisersong/kai-xiaok-plugins",
       "path": "plugins/kai-report-creator",
-      "version": "2.3.0",
+      "version": "2.4.0",
       "source": {
-        "commit": "d7dd2dca5018b89a126f6d74633b38778e9952f1",
-        "treeSha256": "6eedfa5cfdb765062e0aab16e31f0b7a289634ded5bfe486fa61cf286b628bab"
+        "commit": "56b9df72dfbc4541cab6032d4039e2e208b8be68",
+        "treeSha256": "ef520daa718e8fd7a6dc350a2fe6bbbd41e31a755b18a60f0794f8fff3678e41"
       },
       "install": {
         "steps": [
@@ -145,6 +156,11 @@
             "kind": "npm_run",
             "cwd": "mcp-servers/report-renderer",
             "script": "build"
+          },
+          {
+            "kind": "npm_run",
+            "cwd": "mcp-servers/report-renderer",
+            "script": "build:bundle"
           }
         ]
       }
@@ -165,10 +181,10 @@
       ],
       "repo": "kaisersong/kai-xiaok-plugins",
       "path": "plugins/kai-slide-creator",
-      "version": "3.3.0",
+      "version": "3.4.0",
       "source": {
-        "commit": "d7dd2dca5018b89a126f6d74633b38778e9952f1",
-        "treeSha256": "15287fc15f50bf8273fbc465990551a95feaab3028783cf2209ce54413b73db4"
+        "commit": "56b9df72dfbc4541cab6032d4039e2e208b8be68",
+        "treeSha256": "2ace94932a1f6839845045c666b22f75783f860f06c04f7a7cd087442e9c3084"
       },
       "install": {
         "steps": [
