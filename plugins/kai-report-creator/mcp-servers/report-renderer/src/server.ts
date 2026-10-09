@@ -1,5 +1,6 @@
 import { McpServer, type ServerContext } from '@modelcontextprotocol/server';
-import { serveStdio } from '@modelcontextprotocol/server/stdio';
+import { serveStdio, StdioServerTransport } from '@modelcontextprotocol/server/stdio';
+import { withReportTasks } from './report-tasks.js';
 import { z } from 'zod';
 import { handleValidateIR } from './tools/validate-ir.js';
 import { handleListThemes } from './tools/list-themes.js';
@@ -15,7 +16,7 @@ async function reportProgress(ctx: ServerContext, progress: number): Promise<voi
 export function buildServer(): McpServer {
   const server = new McpServer(
     { name: 'report-renderer', version: '2.3.0' },
-    { capabilities: { tools: {} } },
+    { capabilities: { tools: {}, extensions: { 'io.modelcontextprotocol/tasks': {} } } },
   );
 
   server.registerTool(
@@ -83,4 +84,4 @@ export function buildServer(): McpServer {
   return server;
 }
 
-serveStdio(() => buildServer());
+serveStdio(() => buildServer(), { transport: withReportTasks(new StdioServerTransport()) });

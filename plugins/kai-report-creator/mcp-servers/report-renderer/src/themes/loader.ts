@@ -1,9 +1,11 @@
-import { readFileSync } from 'node:fs';
+import { readFileSync, existsSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const cssDir = join(__dirname, 'css');
+// esbuild places import.meta.url at dist/server.bundle.js; unbundled output
+// retains dist/themes/loader.js. Resolve the same shipped assets in both forms.
+const cssDir = existsSync(join(__dirname, 'css', 'shared.css')) ? join(__dirname, 'css') : join(__dirname, 'themes', 'css');
 
 export interface ThemeCSS {
   name: string;

@@ -1,5 +1,6 @@
 import { McpServer } from '@modelcontextprotocol/server';
-import { serveStdio } from '@modelcontextprotocol/server/stdio';
+import { serveStdio, StdioServerTransport } from '@modelcontextprotocol/server/stdio';
+import { withReportTasks } from './report-tasks.js';
 import { z } from 'zod';
 import { handleValidateIR } from './tools/validate-ir.js';
 import { handleListThemes } from './tools/list-themes.js';
@@ -12,7 +13,7 @@ async function reportProgress(ctx, progress) {
     await ctx.mcpReq.notify({ method: 'notifications/progress', params: { progressToken, progress, total: 2 } }).catch(() => undefined);
 }
 export function buildServer() {
-    const server = new McpServer({ name: 'report-renderer', version: '2.3.0' }, { capabilities: { tools: {} } });
+    const server = new McpServer({ name: 'report-renderer', version: '2.3.0' }, { capabilities: { tools: {}, extensions: { 'io.modelcontextprotocol/tasks': {} } } });
     server.registerTool('validate_ir', {
         description: 'Validate a .report.md IR file for syntax and semantic correctness',
         inputSchema: z.object({
@@ -57,5 +58,5 @@ export function buildServer() {
     });
     return server;
 }
-serveStdio(() => buildServer());
+serveStdio(() => buildServer(), { transport: withReportTasks(new StdioServerTransport()) });
 //# sourceMappingURL=server.js.map
