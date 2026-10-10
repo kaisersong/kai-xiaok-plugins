@@ -44,6 +44,9 @@ vendor_slide_creator() {
     local server_dst="$dst/mcp-servers/slide-renderer"
     local scripts=(
         low_context.py
+        audience_readability.py
+        model_context.py
+        shader_hero_renderer.py
         validate_html.py
         preset_support.py
         title_profiles.py
@@ -151,6 +154,7 @@ payload = {
     "source": "slide-creator",
     "source_commit": os.environ["SOURCE_COMMIT"],
     "source_dirty": os.environ["SOURCE_DIRTY"] == "true",
+    "source_version": next(line.split(":", 1)[1].strip() for line in (Path(os.environ["SOURCE_DIR"]) / "SKILL.md").read_text().splitlines() if line.startswith("version:")),
     "files": files,
 }
 (destination / "vendor-manifest.json").write_text(
@@ -173,23 +177,9 @@ vendor_report_creator() {
 
     info "Vendoring report-creator rendering engine from $src"
 
-    # report-creator 是 Node.js，同步 src/ 目录
-    local server_dst="$dst/mcp-servers/report-renderer"
-
-    if [[ -d "$src/src" ]]; then
-        rsync -av --delete "$src/src/" "$server_dst/src/"
-        info "  src/ → mcp-servers/report-renderer/src/"
-    fi
-
-    if [[ -f "$src/package.json" ]]; then
-        cp "$src/package.json" "$server_dst/package.json"
-        info "  package.json"
-    fi
-
-    if [[ -f "$src/tsconfig.json" ]]; then
-        cp "$src/tsconfig.json" "$server_dst/tsconfig.json"
-        info "  tsconfig.json"
-    fi
+    # The formal upstream is a Python/HTML skill repository. Do not replace the
+    # plugin-owned TypeScript adapter, package files or existing CSS overrides.
+    [[ -f "$src/SKILL.md" && -d "$src/references" ]] || error "MISSING upstream SKILL.md/references"
 
     # References / themes
     if [[ -d "$src/references" ]]; then
@@ -203,12 +193,13 @@ vendor_report_creator() {
         info "  schemas/ synced"
     fi
 
-    # Build MCP server
-    if command -v npm &>/dev/null && [[ -f "$server_dst/package.json" ]]; then
-        info "  Building MCP server (npm install + build)..."
-        (cd "$server_dst" && npm install 2>&1 | tail -1 && npm run build 2>&1 | tail -2)
-        info "  Build complete"
+    # Formal upstream is a Python/HTML skill repository; keep the plugin-owned
+    # TypeScript MCP renderer and its CSS adaptations.
+    if [[ -d "$src/themes" ]]; then
+        mkdir -p "$dst/themes"
+        rsync -a --exclude '.DS_Store' "$src/themes/" "$dst/themes/"
     fi
+    SOURCE_DIR="$src" VENDOR_DEST="$dst" python3 "$SCRIPT_DIR/vendor-manifest.py" report-creator
 
     info "report-creator vendor complete"
 }

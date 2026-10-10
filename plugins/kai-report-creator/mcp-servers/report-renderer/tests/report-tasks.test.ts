@@ -19,7 +19,7 @@ describe('durable report task producer', () => {
   }
   it('commits creation and terminal result, replays after restart and seeds a late subscription without re-rendering', async () => {
     const f = fixture(), ir = readFileSync(join(import.meta.dirname, 'fixtures/valid-mixed.report.md'), 'utf8');
-    f.request(1, 'tools/call', { name: 'render_report', arguments: { ir_content: ir } });
+    f.request(1, 'tools/call', { name: 'render_report', arguments: { ir_content: ir, output_path: join(f.root, 'result.html') } });
     await vi.waitFor(() => expect(f.messages[0]?.result.resultType).toBe('task'));
     const taskId = f.messages[0].result.taskId;
     await vi.waitFor(() => { f.request(2, 'tasks/get', { taskId }); expect(f.messages.at(-1)?.result?.status).toBe('completed'); });

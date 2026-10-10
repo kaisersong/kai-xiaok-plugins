@@ -33,7 +33,7 @@ from preset_support import preset_support_tier, load_preset_support_matrix
 
 mcp = MCPServer(
     name="slide-renderer",
-    version="3.4.0",
+    version="3.5.0",
     instructions="Deterministic HTML rendering from BRIEF.json IR",
 )
 
@@ -118,7 +118,30 @@ def validate_brief(brief_json: str) -> ValidationResult:
         )
 
 
-def render_slide(brief_json: str, output_path: str | None = None) -> RenderResult:
+def _preset_identity(preset: str) -> Path:
+    from preset_capabilities import resolve_style_reference_path, CANONICAL_PRESET_NAMES
+    if not isinstance(preset, str) or not preset.strip():
+        raise BriefValidationError("Requested preset must be a nonempty string")
+    try:
+        return resolve_style_reference_path(preset).resolve()
+    except (OSError, ValueError) as exc:
+        canonical = CANONICAL_PRESET_NAMES.get(preset.lower().replace("-", " "))
+        if canonical and not preset.startswith("custom:"):
+            return resolve_style_reference_path(canonical).resolve()
+        raise BriefValidationError(f"Invalid requested preset {preset!r}: {exc}") from exc
+
+
+def assert_requested_preset(brief: dict, requested: str | None) -> None:
+    if requested is None:
+        return
+    actual = brief.get("style", {}).get("preset", "")
+    if _preset_identity(actual) != _preset_identity(requested):
+        raise BriefValidationError(
+            f"PRESET MISMATCH: user requested {requested!r}, BRIEF selected {actual!r}. "
+            "Correct BRIEF.style.preset and render again; output was not written."
+        )
+
+def render_slide(brief_json: str, output_path: str | None = None, requested_preset: str | None = None) -> RenderResult:
     """Render HTML slide deck from BRIEF.json.
 
     Args:
@@ -130,6 +153,8 @@ def render_slide(brief_json: str, output_path: str | None = None) -> RenderResul
     """
     try:
         brief_data = json.loads(brief_json)
+
+        assert_requested_preset(brief_data, requested_preset)
 
         # Validate BRIEF first
         import tempfile
@@ -226,10 +251,10 @@ def render_slide(brief_json: str, output_path: str | None = None) -> RenderResul
 
 
 @mcp.tool(name="render_slide")
-async def render_slide_tool(brief_json: str, ctx: Context, output_path: str | None = None) -> RenderResult:
-    """Render HTML slide deck from BRIEF.json, reporting render stages."""
+async def render_slide_tool(brief_json: str, ctx: Context, output_path: str | None = None, requested_preset: str | None = None) -> RenderResult:
+    """Render HTML slides; pass the user-selected preset independently of BRIEF."""
     await ctx.report_progress(1, total=2)
-    result = await anyio.to_thread.run_sync(render_slide, brief_json, output_path)
+    result = await anyio.to_thread.run_sync(render_slide, brief_json, output_path, requested_preset)
     await ctx.report_progress(2, total=2)
     return result
 
@@ -293,6 +318,18 @@ def list_presets() -> PresetListResult:
         presets=presets,
         total=len(presets),
     )
+
+
+@mcp.tool()
+def get_model_context(preset: str) -> dict:
+    """Get the compact planning contract for a selected preset, without CSS/JS."""
+    from model_context import build_model_context
+    context = build_model_context(preset)
+    context["rules"] = [
+        "Pass the explicit user preset as requested_preset to render_slide independently of BRIEF. Never change it to match a model-selected preset." if "SLIDE_REQUEST.json" in rule else rule
+        for rule in context["rules"]
+    ]
+    return context
 
 
 @mcp.tool()

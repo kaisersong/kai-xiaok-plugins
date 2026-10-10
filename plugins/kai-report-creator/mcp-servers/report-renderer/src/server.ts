@@ -15,7 +15,7 @@ async function reportProgress(ctx: ServerContext, progress: number): Promise<voi
 
 export function buildServer(): McpServer {
   const server = new McpServer(
-    { name: 'report-renderer', version: '2.3.0' },
+    { name: 'report-renderer', version: '2.5.1' },
     { capabilities: { tools: {}, extensions: { 'io.modelcontextprotocol/tasks': {} } } },
   );
 

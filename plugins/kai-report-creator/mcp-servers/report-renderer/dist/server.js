@@ -13,7 +13,7 @@ async function reportProgress(ctx, progress) {
     await ctx.mcpReq.notify({ method: 'notifications/progress', params: { progressToken, progress, total: 2 } }).catch(() => undefined);
 }
 export function buildServer() {
-    const server = new McpServer({ name: 'report-renderer', version: '2.3.0' }, { capabilities: { tools: {}, extensions: { 'io.modelcontextprotocol/tasks': {} } } });
+    const server = new McpServer({ name: 'report-renderer', version: '2.5.1' }, { capabilities: { tools: {}, extensions: { 'io.modelcontextprotocol/tasks': {} } } });
     server.registerTool('validate_ir', {
         description: 'Validate a .report.md IR file for syntax and semantic correctness',
         inputSchema: z.object({

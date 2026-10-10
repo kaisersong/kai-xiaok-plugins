@@ -1,7 +1,7 @@
 ---
 name: slide-planner
 description: Use when user wants to create HTML slide decks, presentations, pitch decks, or reports. Triggers on slide/presentation/deck/ppt/pitch/路演/幻灯片/演示.
-version: 3.3.0
+version: 3.5.0
 user-invocable: true
 metadata: {"emoji":"🎞","os":["darwin","linux","windows"]}
 ---
@@ -17,7 +17,7 @@ Generate zero-dependency HTML slide decks via BRIEF.json IR + MCP rendering.
 ## Workflow (6 steps)
 
 1. **Understand** — Parse user request: topic, audience, style, language.
-2. **Compose BRIEF.json** — Build IR in memory. DO NOT Write to disk unless user asks.
+2. **Load contract and compose** — Call `get_model_context(preset)` for the selected style. Build complete BRIEF.json in memory using its skeleton and evidence rules. Normally read `references/generation-contract.md`; technical content also uses `references/technical-language.md`. The renderer owns the full CSS/JS and runtime.
 3. **Validate** — Call `mcp__slide-renderer__validate_brief(brief_json)`.
 4. **Fix (max 1 round)** — If invalid, fix and re-validate ONCE. Still fails → report and stop.
 5. **Render** — Call `mcp__slide-renderer__render_slide(brief_json, output_path)`.
@@ -60,12 +60,12 @@ Content type routing:
 | Content Type | Presets |
 |---|---|
 | Data report | Data Story, Enterprise Dark, Swiss Modern |
-| Pitch / VC | Bold Signal, Aurora Mesh, Enterprise Dark |
-| Product / SaaS | Blue Sky, Aurora Mesh, Glassmorphism |
-| Dev tools / API | Terminal Green, Neo-Retro Dev Deck |
-| Research | Modern Newspaper, Paper & Ink, Swiss Modern |
-| Philosophy | Chinese Chan |
-| Strategy | Strategy Consulting, Enterprise Dark, Swiss Modern |
+| Pitch / VC | Enterprise Dark, Blue Sky, Swiss Modern |
+| Product / SaaS | Blue Sky, Enterprise Dark, Data Story |
+| Dev tools / API | Data Story, Blue Sky, Enterprise Dark |
+| Research | Swiss Modern, Data Story, Chinese Chan |
+| Philosophy | Chinese Chan, Swiss Modern |
+| Strategy | Enterprise Dark, Swiss Modern, Data Story |
 
 All 22 presets valid when explicitly requested. Honor user choice.
 
@@ -74,8 +74,9 @@ All 22 presets valid when explicitly requested. Honor user choice.
 | Tool | Params | Returns |
 |------|--------|---------|
 | `validate_brief` | `brief_json: str` | `{valid, errors, warnings}` |
-| `render_slide` | `brief_json: str`, `output_path: str` | `{success, html, preset, quality_tier, errors, stats}` |
+| `render_slide` | `brief_json: str`, `output_path: str`, `requested_preset?: str` | `{success, html, preset, quality_tier, errors, stats}` |
 | `list_presets` | — | `{presets[], total}` |
+| `get_model_context` | `preset: str` | Compact style contract, BRIEF skeleton and evidence rules |
 | `get_schema` | — | JSON Schema string |
 
 All tools prefixed with `mcp__slide-renderer__`.
@@ -100,3 +101,13 @@ All tools prefixed with `mcp__slide-renderer__`.
 | Fast / quick draft | `mode: "auto"` |
 | Deep / polished | `mode: "polish"` |
 | Re-render with changes | Edit BRIEF in memory → validate → render |
+
+## Formal upstream alignment
+
+Source: slide-creator 2.32.0 at `31a6ef1426b0d9764a37432370f20a8526ec7226`.
+When the user explicitly selects a style, preserve that choice independently of the model-authored BRIEF and pass the original choice as `requested_preset`. A mismatch rejects rendering before touching the existing output; correct BRIEF, never change the user choice to pass validation. This is the MCP equivalent of upstream's request-file guard and keeps IR in memory.
+Keep observations, measurements, targets and hypotheses distinct. Preserve entities, units, conditions and source language; use local supporting facts on each page without repeating global evidence. For a restyle, extract the existing content into a valid BRIEF and render again through MCP.
+
+## Animated covers (formal upstream 2.32.0)
+
+When users ask for animated covers or a moving first slide, load `references/animated-covers.md`. Shipped choices: 极光封面 (`custom:shader-hero`), 奇幻彩虹 (`custom:fantasy-rainbow`), 熔金流体 (`custom:molten-flow`), 星核跃迁 (`custom:stellar-vortex`). Default an unspecified animated opening to 极光封面. No GPU or animation page-range question is needed. These are complete themes; content and closing pages remain static. Call `get_model_context` for the selected theme and render valid BRIEF through MCP. Local HTML playback is offline; reduced motion/unavailable graphics has a static fallback. Static export intent strips the GPU canvas/runtime. Preserve user content as editable DOM.

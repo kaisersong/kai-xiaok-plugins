@@ -1,7 +1,7 @@
 ---
 name: kai-report-creator
 description: Use when the user wants to CREATE or GENERATE a report, business summary, data dashboard, or research doc. Handles Chinese and English. The model generates IR (.report.md) and delegates rendering to the MCP report-renderer server.
-version: 2.2.0
+version: 2.5.1
 user-invocable: true
 metadata: {"openclaw": {"emoji": "📊"}}
 ---
@@ -211,3 +211,8 @@ The following tools are available as `mcp__report-renderer__<tool_name>`:
 | "带封面的报告" / 封面 / hero cover | frontmatter 加 `cover: hero` + `:::cover` fence → render |
 | "动效网页" / "滚动叙事" / scrollytelling / 动画长页 | frontmatter `animations: scrollytelling` → render |
 | "虹彩" / iridescence / WebGL 动效 | frontmatter `animations: iridescence` → render |
+
+## Formal upstream alignment
+
+Source: report-creator 1.28.1 at `bee5183ff8be0f5a8fc601d94f2a2a9bcf04d4b4`. The vendored `references/` and `themes/` retain its planning, review and shell contracts. The plugin-owned TypeScript renderer remains the program that produces HTML; upstream CLI/handwritten HTML steps do not replace this MCP workflow. Its forest-editorial timeline capsule already includes the upstream `.75rem 1.1rem` padding fix.
+Load only the references needed for the current report class or review. Keep measured values, targets and unknowns distinct; never invent data to populate KPI cards or charts. Standard and animated shell checks remain separate as described above.

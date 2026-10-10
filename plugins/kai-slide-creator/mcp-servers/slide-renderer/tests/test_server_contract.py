@@ -24,8 +24,8 @@ def test_server_has_mcp_instance():
 
 
 def test_server_has_expected_tools():
-    """Server should register 4 tools."""
+    """Server should register 5 tools."""
     mod = importlib.import_module("server")
     tool_names = list(mod.mcp._tool_manager._tools.keys())
-    expected = ["validate_brief", "render_slide", "list_presets", "get_schema"]
+    expected = ["validate_brief", "render_slide", "list_presets", "get_schema", "get_model_context"]
     assert set(tool_names) == set(expected)

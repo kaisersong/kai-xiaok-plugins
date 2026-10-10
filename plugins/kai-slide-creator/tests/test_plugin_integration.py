@@ -94,7 +94,7 @@ class TestPluginJsonValid:
             "registry.json": registry_entry["version"],
             "skills/slide-planner/SKILL.md": skill_version.group(1),
         }
-        assert set(versions.values()) == {"3.3.0"}, versions
+        assert set(versions.values()) == {"3.5.0"}, versions
 
     def test_skills_list_non_empty(self, plugin_json: dict):
         assert isinstance(plugin_json["skills"], list)
@@ -223,6 +223,9 @@ class TestVendoredPresetFidelity:
     REQUIRED_RENDERER_SCRIPTS = {
         "check_style_fidelity.py",
         "low_context.py",
+        "audience_readability.py",
+        "model_context.py",
+        "shader_hero_renderer.py",
         "preset_capabilities.py",
         "preset_contracts.py",
         "preset_profile_renderer.py",

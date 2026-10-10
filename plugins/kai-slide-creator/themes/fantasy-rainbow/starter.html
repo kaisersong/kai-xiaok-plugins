@@ -68,6 +68,18 @@ body::before {
 body[data-iridescence-active="false"] #iridescence-canvas { display: none; opacity: 0; visibility: hidden; }
 body[data-iridescence-fallback="true"] #iridescence-canvas { opacity: 0; }
 
+/* Optional cover stars share the cover lifecycle, including pseudo-elements. */
+body { --iri-cover-play-state: paused; }
+body[data-cover-animating="true"] { --iri-cover-play-state: running; }
+:is(.iri-scene--hero, [data-cover-animation]),
+:is(.iri-scene--hero, [data-cover-animation])::before,
+:is(.iri-scene--hero, [data-cover-animation])::after,
+:is(.iri-scene--hero, [data-cover-animation]) *,
+:is(.iri-scene--hero, [data-cover-animation]) *::before,
+:is(.iri-scene--hero, [data-cover-animation]) *::after {
+  animation-play-state: var(--iri-cover-play-state) !important;
+}
+
 .slide {
   position: relative;
   z-index: 1;
@@ -84,6 +96,10 @@ body[data-iridescence-fallback="true"] #iridescence-canvas { opacity: 0; }
   padding: clamp(42px, 5.8vh, 64px) clamp(42px, 4.5vw, 66px);
   background: transparent;
   isolation: isolate;
+  /* Keep the presentation viewport scale static; never animate a full slide. */
+  animation: none !important;
+  transition: none !important;
+  will-change: auto;
 }
 .slide::before {
   content: "";
@@ -236,7 +252,7 @@ p, li { text-wrap: pretty; }
 
 /* 05 — pipeline */
 .iri-pipeline { width: min(88vw, 1260px); display: grid; grid-template-columns: repeat(6, 1fr); transform: rotate(-2deg); border-top: 2px solid var(--iri-ink); border-bottom: 2px solid var(--iri-ink); }
-.iri-pipeline-step { min-height: 190px; padding: 22px 16px 22px 0; border-top: 1px solid rgba(10,10,18,.42); display: grid; align-content: space-between; background: transparent; }
+.iri-pipeline-step { min-height: 190px; padding: 22px 16px; border-right: 1px solid rgba(10,10,18,.4); display: grid; align-content: space-between; background: #fff; }
 .iri-pipeline-step:last-child { border-right: 0; }
 .iri-pipeline-step span { font: 700 10px var(--iri-mono); letter-spacing: .16em; }
 .iri-pipeline-step strong { font-size: clamp(14px, 1.22vw, 19px); line-height: 1.25; }
@@ -260,7 +276,7 @@ p, li { text-wrap: pretty; }
 
 /* 08 — gates */
 .iri-gates { width: min(92vw, 1330px); display: grid; grid-template-columns: repeat(4, 1fr); gap: 18px; }
-.iri-gate { min-height: 300px; padding: 20px 0 0; border-top: 3px solid var(--iri-ink); display: grid; grid-template-rows: auto 1fr auto; background: transparent; }
+.iri-gate { min-height: 300px; padding: 24px 20px; border-left: 8px solid var(--iri-ink); display: grid; grid-template-rows: auto 1fr auto; background: #f4f4f8; }
 .iri-gate span { color: var(--iri-ink); font: 700 10px var(--iri-mono); letter-spacing: .15em; }
 .iri-gate strong { align-self: center; font-size: clamp(21px, 2vw, 30px); line-height: 1.05; }
 .iri-gate small { font: 500 clamp(12px, .9vw, 13px)/1.5 var(--iri-mono); }
@@ -269,10 +285,9 @@ p, li { text-wrap: pretty; }
 .iri-runtime-stage { width: min(91vw, 1310px); min-height: 390px; border: 2px solid var(--iri-ink); display: grid; grid-template-columns: 1.3fr .7fr; }
 .iri-runtime-screen { padding: 30px; display: grid; align-content: center; border-right: 1px solid var(--iri-ink); }
 .iri-runtime-screen strong { max-width: 650px; font-size: clamp(38px, 5vw, 76px); line-height: .95; letter-spacing: -.05em; }
-.iri-keys { display: grid; grid-template-columns: 1fr 1fr; column-gap: 48px; }
-.iri-key { min-height: 96px; padding: 18px 0; border-bottom: 1px solid rgba(10,10,18,.42); }
+.iri-keys { display: grid; grid-template-columns: 1fr 1fr; }
+.iri-key { min-height: 96px; padding: 18px; border-right: 1px solid rgba(10,10,18,.4); border-bottom: 1px solid rgba(10,10,18,.4); }
 .iri-key:nth-child(even) { border-right: 0; }
-.iri-key:nth-last-child(-n+2) { border-bottom: 0; }
 .iri-key b { display: block; font: 700 18px var(--iri-mono); }
 .iri-key span { display: block; margin-top: 9px; font-size: clamp(12px, .94vw, 14px); }
 
@@ -285,8 +300,8 @@ p, li { text-wrap: pretty; }
 .iri-mode p { margin: 0; max-width: 470px; font-size: clamp(14px, 1.15vw, 18px); line-height: 1.5; }
 
 /* 11 — use cases */
-.iri-quadrants { width: min(91vw, 1310px); display: grid; grid-template-columns: 1fr 1fr; column-gap: 56px; border-top: 1px solid rgba(10,10,18,.42); }
-.iri-quadrant { min-height: 176px; padding: 20px 0; border-bottom: 1px solid rgba(10,10,18,.42); display: grid; grid-template-columns: 50px 1fr; gap: 16px; }
+.iri-quadrants { width: min(91vw, 1310px); display: grid; grid-template-columns: 1fr 1fr; border-top: 2px solid var(--iri-ink); border-left: 2px solid var(--iri-ink); }
+.iri-quadrant { min-height: 176px; padding: 20px 24px; border-right: 2px solid var(--iri-ink); border-bottom: 2px solid var(--iri-ink); display: grid; grid-template-columns: 50px 1fr; gap: 16px; }
 .iri-quadrant strong { font-size: clamp(18px, 1.7vw, 26px); }
 .iri-quadrant p { grid-column: 2; margin: 0; font-size: clamp(12px, 1vw, 15px); line-height: 1.45; }
 
@@ -312,9 +327,9 @@ p, li { text-wrap: pretty; }
 .iri-accent-tint-secondary { background: var(--iri-tint-purple); }
 .iri-accent-tint-tertiary { background: var(--iri-tint-cyan); }
 .iri-convergence-word.iri-accent-primary { color: rgba(255,255,255,.10); -webkit-text-stroke: 2.4px var(--iri-accent-blue); }
-.iri-gate.iri-gate-accent-primary { border-top-color: var(--iri-accent-blue); }
-.iri-gate.iri-gate-accent-secondary { border-top-color: var(--iri-accent-purple); }
-.iri-gate.iri-gate-accent-tertiary { border-top-color: var(--iri-accent-cyan); }
+.iri-gate.iri-gate-accent-primary { border-left-color: var(--iri-accent-blue); }
+.iri-gate.iri-gate-accent-secondary { border-left-color: var(--iri-accent-purple); }
+.iri-gate.iri-gate-accent-tertiary { border-left-color: var(--iri-accent-cyan); }
 .iri-gate.iri-gate-accent-primary > span { color: var(--iri-accent-blue-text); }
 .iri-gate.iri-gate-accent-secondary > span { color: var(--iri-accent-purple-text); }
 .iri-gate.iri-gate-accent-tertiary > span { color: var(--iri-accent-cyan-text); }
@@ -377,11 +392,19 @@ body:has(.iri-scene--closing.visible) #brand-mark { color: rgba(247,247,251,.72)
   color: #fff;
   background: rgba(10,10,18,.88);
   cursor: pointer;
-  opacity: .5;
-  pointer-events: auto;
+  opacity: 0;
+  pointer-events: none;
   transition: opacity .2s ease;
 }
-#present-btn:hover, body:hover #present-btn { opacity: 1; pointer-events: auto; }
+body:hover #present-btn { opacity: 1; pointer-events: auto; }
+body.presenting #counter, body.presenting #slide-counter { display: none !important; }
+body.presenting.presenting-black::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 99999;
+  background: #000;
+}
 #present-counter {
   position: fixed;
   top: 16px;
@@ -416,7 +439,13 @@ body:has(.iri-scene--closing.visible) #brand-mark { color: rgba(247,247,251,.72)
 #notes-textarea { width: 100%; min-height: 150px; resize: vertical; border: 0; outline: 0; color: #fff; background: transparent; font: 14px/1.55 var(--iri-display); }
 #notes-collapse-btn { border: 0; color: #fff; background: transparent; cursor: pointer; }
 
-.reveal { opacity: .22; transform: translateY(12px); transition: opacity .45s ease, transform .45s ease; }
+.reveal { opacity: .22; transition: opacity .2s ease; }
+.slide-content, .reveal, .kd-reveal {
+  transform: none;
+  animation: none;
+  transition-property: opacity;
+  will-change: auto;
+}
 .reveal.visible, .kd-reveal.visible, .slide.visible .kd-reveal { opacity: 1; transform: none; }
 
 @media (max-width: 900px) {
@@ -502,6 +531,7 @@ body:has(.iri-scene--closing.visible) #brand-mark { color: rgba(247,247,251,.72)
       this.ready = false;
       this.contextLost = false;
       this.printing = false;
+      this.pageHidden = false;
       this.active = true;
       this.testTime = null;
       this.startedAt = performance.now();
@@ -509,7 +539,8 @@ body:has(.iri-scene--closing.visible) #brand-mark { color: rgba(247,247,251,.72)
       this.intervals = [];
       this.drawCount = 0;
       this.lossExtension = null;
-      this.scrollSyncTimer = 0;
+      this.slides = Array.from(document.querySelectorAll(".slide"));
+      this.cover = this.slides[0];
       this.slideObserver = null;
       this.motion = matchMedia("(prefers-reduced-motion: reduce)");
       this.vertexSource = "attribute vec2 uv;attribute vec2 position;varying vec2 vUv;void main(){vUv=uv;gl_Position=vec4(position,0.0,1.0);}";
@@ -624,7 +655,12 @@ body:has(.iri-scene--closing.visible) #brand-mark { color: rgba(247,247,251,.72)
       this.lastFrameAt = now;
       this.drawCount += 1;
       this.gl.useProgram(this.program);
-      this.gl.uniform1f(this.uniforms.time, seconds);
+      // The field repeats every 4π seconds (uTime * 0.5 is an angle).
+      // Wrap in JS double precision before uploading a float to the GPU:
+      // large times quantize the iterative field into bands and blocks.
+      const cycle = 4 * Math.PI;
+      const phase = ((seconds % cycle) + cycle) % cycle;
+      this.gl.uniform1f(this.uniforms.time, phase);
       this.gl.uniform3f(this.uniforms.resolution, this.canvas.width, this.canvas.height, 1);
       this.gl.viewport(0, 0, this.canvas.width, this.canvas.height);
       this.gl.drawArrays(this.gl.TRIANGLE_FAN, 0, 4);
@@ -632,13 +668,21 @@ body:has(.iri-scene--closing.visible) #brand-mark { color: rgba(247,247,251,.72)
     }
 
     shouldAnimate() {
-      return this.active && this.ready && !this.contextLost && !this.printing && !document.hidden && !this.motion.matches && this.testTime === null;
+      return this.active && this.ready && !this.contextLost && !this.suspended() && this.testTime === null;
+    }
+
+    suspended() {
+      return this.printing || this.pageHidden || document.hidden || this.motion.matches || document.body.classList.contains("presenting-black");
     }
 
     frame = (now) => {
       this.rafId = 0;
-      if (!this.shouldAnimate()) return;
-      this.draw((now - this.startedAt) / 1000 + this.activeIndex() * .61);
+      if (!this.shouldAnimate()) {
+        document.body.dataset.coverAnimating = "false";
+        this.stop();
+        return;
+      }
+      this.draw((now - this.startedAt) / 1000);
       this.rafId = requestAnimationFrame(this.frame);
     };
 
@@ -649,10 +693,11 @@ body:has(.iri-scene--closing.visible) #brand-mark { color: rgba(247,247,251,.72)
     stop() {
       if (this.rafId) cancelAnimationFrame(this.rafId);
       this.rafId = 0;
+      this.lastFrameAt = 0;
     }
 
     activeIndex() {
-      const slides = Array.from(document.querySelectorAll(".slide"));
+      const slides = this.slides;
       if (document.body.classList.contains("presenting")) {
         const presented = slides.findIndex((slide) => slide.classList.contains("p-on"));
         if (presented >= 0) return presented;
@@ -665,18 +710,27 @@ body:has(.iri-scene--closing.visible) #brand-mark { color: rgba(247,247,251,.72)
     }
 
     isCoverActive() {
-      return this.activeIndex() === 0;
+      if (!this.cover) return false;
+      if (document.body.classList.contains("presenting")) return this.cover.classList.contains("p-on");
+      // Navigation marks the target before smooth scrolling finishes. Stop at once
+      // when leaving, and wait until the cover is actually back in view to resume.
+      if (!this.cover.classList.contains("visible") && this.slides.some((slide) => slide.classList.contains("visible"))) return false;
+      const rect = this.cover.getBoundingClientRect();
+      return rect.height > 0 && rect.top <= innerHeight / 2 && rect.bottom > innerHeight / 2;
     }
 
     sync() {
       this.active = this.isCoverActive();
       document.body.dataset.iridescenceActive = String(this.active);
       this.canvas.hidden = !this.active;
-      if (!this.active) { this.stop(); return; }
+      const suspended = this.suspended();
+      document.body.dataset.coverAnimating = String(this.active && !suspended && this.testTime === null);
+      if (!this.active || suspended) { this.stop(); return; }
+      if (this.testTime !== null) this.stop();
       if (!this.ready && !this.contextLost) this.init();
       if (!this.ready) return;
       const seconds = this.testTime === null ? Math.max(0, (performance.now() - this.startedAt) / 1000) : this.testTime;
-      this.draw(seconds);
+      if (!this.rafId) this.draw(seconds);
       this.start();
     }
 
@@ -696,22 +750,20 @@ body:has(.iri-scene--closing.visible) #brand-mark { color: rgba(247,247,251,.72)
         this.ready = false;
         this.sync();
       });
-      document.addEventListener("visibilitychange", () => document.hidden ? this.stop() : this.sync());
+      document.addEventListener("visibilitychange", () => this.sync());
       addEventListener("resize", () => this.sync());
       addEventListener("fullscreenchange", () => this.sync());
-      addEventListener("scroll", () => {
-        clearTimeout(this.scrollSyncTimer);
-        this.scrollSyncTimer = setTimeout(() => this.sync(), 40);
-      }, { passive: true });
-      addEventListener("beforeprint", () => { this.printing = true; this.stop(); });
+      addEventListener("scroll", () => this.sync(), { passive: true });
+      addEventListener("beforeprint", () => { this.printing = true; this.sync(); });
       addEventListener("afterprint", () => { this.printing = false; this.sync(); });
-      addEventListener("pagehide", () => this.stop());
-      addEventListener("pageshow", () => this.sync());
+      addEventListener("pagehide", () => { this.pageHidden = true; this.sync(); });
+      addEventListener("pageshow", () => { this.pageHidden = false; this.sync(); });
       const motionChange = () => this.sync();
       if (this.motion.addEventListener) this.motion.addEventListener("change", motionChange);
       else this.motion.addListener(motionChange);
       this.slideObserver = new MutationObserver(() => this.sync());
-      document.querySelectorAll(".slide").forEach((slide) => {
+      this.slideObserver.observe(document.body, { attributes: true, attributeFilter: ["class"] });
+      this.slides.forEach((slide) => {
         this.slideObserver.observe(slide, { attributes: true, attributeFilter: ["class"] });
       });
     }

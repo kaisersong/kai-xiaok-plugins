@@ -9,7 +9,7 @@ const root = resolve(import.meta.dirname, '..')
 const python = process.env.MCP_TEST_PYTHON || 'python3'
 const cases = [
   ['kai-report-creator', process.execPath, 'mcp-servers/report-renderer/dist/server.bundle.js', 'list_themes', {}, 4],
-  ['kai-slide-creator', python, 'mcp-servers/slide-renderer/server.py', 'list_presets', {}, 4],
+  ['kai-slide-creator', python, 'mcp-servers/slide-renderer/server.py', 'list_presets', {}, 5],
   ['kai-meeting-assistant', python, 'mcp-servers/meeting-transcriber/server.py', 'transcribe_file_tool', { audio_path: resolve(root, 'missing-audio.wav') }, 1],
   ['kai-infinity-canvas', process.execPath, 'mcp-servers/canvas-server/dist/server.bundle.js', 'kai_canvas_get_selection', { projectDir: root }, 4],
 ]

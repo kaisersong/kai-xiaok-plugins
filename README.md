@@ -120,7 +120,9 @@ Only run vendoring when intentionally updating from an upstream renderer checkou
 ./scripts/vendor.sh report-creator
 ```
 
-The Bash script defaults to `~/projects/slide-creator` and `~/projects/report-creator`. Override them with `SLIDE_CREATOR_REPO` and `REPORT_CREATOR_REPO`. Inspect the copied diff before building; Windows development needs a Bash-compatible environment for this script.
+The Bash script defaults to `~/projects/slide-creator` and `~/projects/report-creator`. Override them with `SLIDE_CREATOR_REPO` and `REPORT_CREATOR_REPO`. The formal report upstream supplies reference/theme contracts; its TypeScript MCP adapter, package files and CSS overrides are maintained here. `vendor-manifest.json` records upstream commits and file hashes for each renderer. Build explicitly after inspecting the copied diff; Windows development needs a Bash-compatible environment for this script.
+
+For local-only source synchronization and registry binding limits, see [sync maintenance](docs/sync-maintenance.md).
 
 ### Build and Test
 

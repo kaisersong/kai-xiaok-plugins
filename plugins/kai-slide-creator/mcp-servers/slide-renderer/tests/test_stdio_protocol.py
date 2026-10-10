@@ -96,7 +96,7 @@ def test_list_tools_via_stdio():
         assert "result" in response, f"Missing 'result' in response: {response}"
         tools = response["result"].get("tools", [])
         tool_names = {t["name"] for t in tools}
-        expected = {"validate_brief", "render_slide", "list_presets", "get_schema"}
+        expected = {"validate_brief", "render_slide", "list_presets", "get_schema", "get_model_context"}
         assert tool_names == expected, f"Expected {expected}, got {tool_names}"
     finally:
         proc.terminate()

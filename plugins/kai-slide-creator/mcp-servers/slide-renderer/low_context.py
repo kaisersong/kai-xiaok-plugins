@@ -18,6 +18,7 @@ from preset_capabilities import (
 from preset_profile_renderer import build_preset_profile_payload, profile_auto_contrast_script
 from preset_support import preset_support_tier
 from title_profiles import profile_allows_explicit_line_control, resolve_title_profile
+from audience_readability import unique_facts, copy_key, non_repeating_copy, apply_audience_readability
 
 
 def _discover_root() -> Path:
@@ -581,6 +582,7 @@ def validate_brief_data(brief: Any) -> list[str]:
             slide_optional = {
                 "claim",
                 "explanation",
+                "speaker_note",
                 "title_emphasis",
                 "visual_intent",
                 "preferred_layout_family",
@@ -600,9 +602,11 @@ def validate_brief_data(brief: Any) -> list[str]:
                 for key in ("role", "title", "key_point", "visual"):
                     if key in slide:
                         _ensure_string(slide[key], f"{path}.{key}", errors)
-                for key in ("claim", "explanation", "title_emphasis", "visual_intent", "preferred_layout_family"):
+                for key in ("claim", "explanation", "speaker_note", "title_emphasis", "visual_intent", "preferred_layout_family"):
                     if key in slide and slide[key] is not None:
                         _ensure_string(slide[key], f"{path}.{key}", errors)
+                if "speaker_note" in slide and (not isinstance(slide["speaker_note"],str) or not slide["speaker_note"].strip() or len(slide["speaker_note"])>1200):
+                    errors.append(f"{path}.speaker_note must be a non-empty string of at most 1200 characters")
                 if "chart_policy" in slide:
                     _ensure_enum(slide["chart_policy"], f"{path}.chart_policy", errors, {"auto", "required", "avoid"})
                 for key in ("supporting_facts", "numeric_facts"):
@@ -2028,6 +2032,9 @@ def _select_relevant_evidence_items(
 
 
 def _build_supporting_items(slide: dict[str, Any], evidence: list[str], *, minimum: int) -> list[str]:
+    local = _slide_supporting_facts(slide)
+    if local:
+        return _dedupe_preserve(local)[:max(minimum, 5)]
     candidates: list[str] = []
     for source in (slide.get("key_point", ""), slide.get("title", "")):
         for item in _split_supporting_phrases(source, minimum=1):
@@ -2188,7 +2195,7 @@ def _build_enterprise_story_items(
     if not labels:
         labels = [spec["title"], spec["key_point"], spec["visual"]]
 
-    body = spec["visual"].strip() or spec["key_point"]
+    body = spec["key_point"]
     for offset, label in enumerate(labels[:3], start=1):
         if label == body:
             card_body = spec["key_point"]
@@ -2209,10 +2216,13 @@ def _build_candidate_fact_pool(
     slide: dict[str, Any],
     brief: dict[str, Any],
 ) -> list[str]:
-    return _dedupe_preserve(
+    # Explicit local facts define the page boundary. Global facts are a legacy
+    # fallback, not filler for unrelated rows or diagram nodes.
+    local = unique_facts([*_slide_supporting_facts(slide), *_slide_numeric_facts(slide)])
+    if local:
+        return local
+    return unique_facts(
         [
-            *_slide_supporting_facts(slide),
-            *_slide_numeric_facts(slide),
             *_slide_global_facts(brief),
             *_slide_optional_support(brief),
         ]
@@ -2443,13 +2453,20 @@ def build_slide_spec(brief: dict[str, Any], packet: dict[str, Any] | None = None
             "evidence_items": evidence,
             "supporting_facts": supporting_facts,
             "numeric_facts": numeric_facts,
-            "speaker_note": f"{role}: {explanation}",
+            "speaker_note": _sanitize_pictorial_text(slide.get("speaker_note") or f"{role}: {explanation}"),
             "visual": visual_intent,
             "visual_intent": visual_intent,
             "preferred_layout_family": preferred_layout_family,
             "chart_policy": chart_policy,
             "quality_tier": quality_tier,
+            "desired_action": brief.get("desired_action", ""),
         }
+        if normalized_preset == "data story" and _has_mixed_numeric_units(spec):
+            # Plain numeric_facts have no common scale or conversion contract.
+            # Use evidence cards rather than implying comparable magnitudes.
+            if spec["chart_policy"] == "required":
+                raise RenderError("Required quantitative chart has mixed units; split into same-unit series or use chart_policy=avoid")
+            spec["chart_policy"] = "avoid"
         if rhythm_scheduler_enabled:
             spec["layout_id"] = _choose_rhythm_layout(
                 spec,
@@ -2508,6 +2525,10 @@ def build_slide_spec(brief: dict[str, Any], packet: dict[str, Any] | None = None
             spec["layout_id"] = _avoid_long_layout_runs(spec["layout_id"], previous_layouts, layout_cycle)
         if normalized_preset == "enterprise dark":
             spec.pop("_skip_comparison_signal_check", None)
+        if (normalized_preset == "swiss modern" and spec["layout_id"] == "pull_quote"
+                and len(supporting_facts) > 1
+                and role not in {"closing", "cta", "cta_close", "getting-started"}):
+            spec["layout_id"] = "column_content"
         # Removed second _resolve_layout_with_usage_rules call to prevent overriding diversity adjustment
         # The first resolve + avoid_long_layout_runs already handles all constraints
         specs.append(spec)
@@ -2563,11 +2584,11 @@ def _normalize_title_text(value: str) -> str:
 
 def _title_visual_units(text: str) -> float:
     units = 0.0
-    tokens = re.findall(r"[A-Za-z0-9][A-Za-z0-9%&+/#._:-]*|[\u3400-\u9fff]|[^\w\s]", text)
+    tokens = _tokenize_title(text)
     for token in tokens:
         if re.fullmatch(r"[\u3400-\u9fff]", token):
             units += 1.0
-        elif re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9%&+/#._:-]*", token):
+        elif re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9%&+/#._:-]*(?:['’][A-Za-z0-9]+)*", token):
             units += min(max(len(token) * 0.56, 1.0), 4.2)
         else:
             units += 0.25
@@ -2575,7 +2596,7 @@ def _title_visual_units(text: str) -> float:
 
 
 def _tokenize_title(text: str) -> list[str]:
-    return re.findall(r"[A-Za-z0-9][A-Za-z0-9%&+/#._:-]*|[\u3400-\u9fff]|[^\w\s]", text)
+    return re.findall(r"[A-Za-z0-9][A-Za-z0-9%&+/#._:-]*(?:['’][A-Za-z0-9]+)*|[\u3400-\u9fff]|[^\w\s]", text)
 
 
 def _join_title_tokens(tokens: list[str]) -> str:
@@ -2583,7 +2604,7 @@ def _join_title_tokens(tokens: list[str]) -> str:
     opening = "([<{（《〈【「『"
     result = ""
     previous = ""
-    word_pattern = r"[A-Za-z0-9][A-Za-z0-9%&+/#._:-]*"
+    word_pattern = r"[A-Za-z0-9][A-Za-z0-9%&+/#._:-]*(?:['’][A-Za-z0-9]+)*"
     cjk_pattern = r"[\u3400-\u9fff]"
     for token in tokens:
         if not result:
@@ -3209,6 +3230,7 @@ body.presenting .slide {{
 body.presenting .slide.p-on {{ display: flex !important; }}
 body.presenting #present-btn {{ display: none !important; }}
 body.presenting #present-counter {{ display: block; }}
+body.presenting #counter, body.presenting #slide-counter {{ display: none !important; }}
 body.presenting.presenting-black .slide {{ visibility: hidden !important; }}
 body.presenting.presenting-black::after {{
     content: '';
@@ -3246,7 +3268,31 @@ body.presenting .slide-credit {{ display: none !important; }}
 
 
 def _extract_numbers(text: str) -> list[str]:
-    return re.findall(r"\d+(?:\.\d+)?(?:\+|%|万|亿|座|年)?", text)
+    # p95/v2 are metric names or identifiers, not measured values. Fence
+    # ASCII identifier characters (and decimal tails) without excluding CJK
+    # text such as 峰值120请求 or measurements written as 310ms.
+    return re.findall(r"(?<![A-Za-z0-9_.])\d+(?:\.\d+)?(?:\+|%|万|亿|座|年)?", text)
+
+
+def visible_numeric_coverage_failures(brief: dict[str, Any], html_text: str) -> list[dict[str, Any]]:
+    """Check required source numbers against audience text, never speaker notes.
+
+    This is a narrow omission guard. It cannot verify entities, units or the
+    truth of the input BRIEF; independent source-based review still does that.
+    """
+    from bs4 import BeautifulSoup
+    soup = BeautifulSoup(html_text, "html.parser")
+    # Page numbers and purely structural step indices are not source evidence.
+    for node in soup.select('.slide-num-label, .profile-eyebrow, .pain-num, .disc-step-num, .ent-feature-icon, .ds-matrix-index, [aria-hidden="true"]'):
+        node.decompose()
+    text = " ".join(slide.get_text(" ", strip=True) for slide in soup.select("section.slide"))
+    visible = set(_extract_numbers(text))
+    failures = []
+    for fact in brief.get("content", {}).get("must_include", []):
+        missing = sorted(set(_extract_numbers(str(fact))) - visible)
+        if missing:
+            failures.append({"code":"required-numeric-fact-missing", "source_fact":fact, "missing_tokens":missing})
+    return failures
 
 
 def _dedupe_preserve(values: list[str]) -> list[str]:
@@ -3302,12 +3348,27 @@ def _metric_values_from_spec(spec: dict[str, Any], fallback: list[str]) -> list[
     return deduped[: len(fallback)]
 
 
+def _has_mixed_numeric_units(spec: dict[str, Any]) -> bool:
+    units = set()
+    aliases = {"milliseconds":"ms", "millisecond":"ms", "毫秒":"ms",
+               "seconds":"s", "second":"s", "秒":"s",
+               "percentage points":"pp", "percentage point":"pp", "百分点":"pp",
+               "hours":"h", "hour":"h", "小时":"h", "days":"d", "day":"d", "天":"d"}
+    for fact in spec.get("numeric_facts", []):
+        for unit in re.findall(r"(?<![A-Za-z0-9_.])\d+(?:\.\d+)?\s*(%|percentage[ -]points?|pp\b|milliseconds?\b|ms\b|seconds?\b|s\b|hours?\b|days?\b|毫秒|秒|小时|天|百分点)", str(fact), flags=re.I):
+            normalized = unit.lower().replace("-", " ")
+            units.add(aliases.get(normalized, normalized))
+    return len(units) > 1
+
+
 def _chart_metric_values_from_spec(
     spec: dict[str, Any],
     fallback: list[str],
     *,
     allow_evidence_fill: bool = False,
 ) -> list[str]:
+    if spec.get("chart_policy") == "avoid" or _has_mixed_numeric_units(spec):
+        return []
     values = _dedupe_preserve(
         [
             *_extract_numbers(" ".join(spec.get("numeric_facts", []))),
@@ -3402,7 +3463,8 @@ DISPLAY_KEYWORDS: list[tuple[str, str]] = [
 
 
 def _cleanup_display_candidate(text: str) -> str:
-    candidate = re.sub(r"\s+", "", text or "").strip("，。；、,;:：/+-（）()【】[]“”\"' ")
+    separator = "" if re.search(r"[\u4e00-\u9fff]", text or "") else " "
+    candidate = re.sub(r"\s+", separator, text or "").strip("，。；、,;:：/+-（）()【】[]“”\"' ")
     if not candidate:
         return ""
 
@@ -3562,7 +3624,7 @@ def _compact_display_token(
 
 
 def _spec_display_items(spec: dict[str, Any], *, limit: int = 4) -> list[str]:
-    items = _dedupe_preserve(
+    items = unique_facts(
         [
             *spec.get("supporting_facts", []),
             *spec["supporting_items"],
@@ -3578,6 +3640,18 @@ def _spec_display_items(spec: dict[str, Any], *, limit: int = 4) -> list[str]:
 
 
 def _spec_detail_pairs(spec: dict[str, Any], *, count: int = 4) -> list[tuple[str, str]]:
+    # Do not manufacture a second fact as a caption for the first. A local fact
+    # can be a complete card; an explicit colon can separate label and detail.
+    local = unique_facts(spec.get("supporting_facts", []))
+    if local:
+        pairs = []
+        for fact in local[:count]:
+            pieces = re.split(r"[:：]", fact, maxsplit=1)
+            if len(pieces) == 2 and pieces[0].strip() and pieces[1].strip():
+                pairs.append((pieces[0].strip(), pieces[1].strip()))
+            else:
+                pairs.append((fact, ""))
+        return pairs
     titles = _spec_display_items(spec, limit=count)
     detail_pool = _dedupe_preserve(
         [
@@ -3627,6 +3701,11 @@ def _metric_value_for_item(
     used_tokens: set[str] | None = None,
     numeric_only: bool = False,
 ) -> str:
+    if numeric_only and (spec.get("supporting_facts") or spec.get("numeric_facts")):
+        # A nearby number is not a value for this item. Unbound items remain
+        # qualitative; the body still carries the full source statement.
+        direct = _extract_numbers(item)
+        return direct[0] if direct else ""
     numeric_fact_numbers = _primary_numbers_from_numeric_facts(spec)
     if numeric_only and numeric_fact_numbers:
         return numeric_fact_numbers[min(index, len(numeric_fact_numbers) - 1)]
@@ -3647,6 +3726,8 @@ def _metric_value_for_item(
             return evidence_numbers[min(index, len(evidence_numbers) - 1)]
         return str(index + 1)
 
+    if spec.get("supporting_facts"):
+        return f"{index + 1:02d}"
     compact = _compact_display_token(item, fallback=str(index + 1), used_tokens=used_tokens)
     if compact not in {"关键", str(index + 1)}:
         return compact
@@ -3944,10 +4025,25 @@ def _data_story_non_numeric_svg(spec: dict[str, Any]) -> str:
     if role in {"interaction"}:
         return _svg_state_grid(spec, count=4)
     if role in {"pain-solution", "problem", "risk"} or family in {"comparison"}:
-        return _svg_signal_bars(spec, count=4)
+        return _svg_source_facts(spec, count=4)
     if role in {"design-philosophy", "architecture"} or family in {"architecture-map"}:
         return _svg_signal_map(spec, count=4)
-    return _svg_signal_bars(spec, count=4)
+    return _svg_source_facts(spec, count=4)
+
+
+def _svg_source_facts(spec: dict[str, Any], *, count: int = 4) -> str:
+    """Equal-size fact nodes have no invented quantitative scale."""
+    facts = _dedupe_preserve(spec.get("supporting_facts", []) or _spec_display_items(spec, limit=count))[:count]
+    lines = max((int(_title_visual_units(fact) / 9) + 2 for fact in facts), default=2)
+    height = max(72, lines * 18 + 16)
+    rows = (len(facts) + 1) // 2
+    cells = []
+    for index, fact in enumerate(facts):
+        x, y = 8 + (index % 2) * 160, 8 + (index // 2) * (height + 16)
+        cells.append(f'<rect x="{x}" y="{y}" width="144" height="{height}" rx="8" class="ds-state-cell"></rect>'
+                     f'<foreignObject x="{x+8}" y="{y+8}" width="128" height="{height-16}">'
+                     f'<div xmlns="http://www.w3.org/1999/xhtml" style="font-size:14px;line-height:18px;color:var(--text);overflow-wrap:anywhere;">{_escape(fact)}</div></foreignObject>')
+    return f'<svg viewBox="0 0 320 {max(88, rows*(height+16))}" class="ds-chart-svg ds-source-facts" style="max-height:340px;" role="img" aria-label="source facts">' + ''.join(cells) + '</svg>'
 
 
 SWISS_BG_NUM_ROLES = {"cover", "pain-solution", "presets", "content-routing", "use-cases", "cta_close", "closing", "cta", "getting-started"}
@@ -3993,17 +4089,17 @@ def _render_swiss_title_grid(spec: dict[str, Any], total: int) -> str:
     slide_number = spec["slide_number"]
     title_tag = _title_tag("h1", "swiss-title", spec["title"], preset="Swiss Modern", layout_id=spec["layout_id"])
     hero_stats = ""
-    stat_items = spec["evidence_items"][:3] or spec["supporting_items"][:3]
+    stat_items = unique_facts(spec.get("supporting_facts") or spec["evidence_items"] or spec["supporting_items"])[:3]
     if stat_items:
         stat_blocks = []
         used_tokens: set[str] = set()
         for index, item in enumerate(stat_items, start=1):
-            stat_value = _metric_value_for_item(item, spec, index=index - 1, used_tokens=used_tokens)
+            stat_value = _metric_value_for_item(item, spec, index=index - 1, used_tokens=used_tokens, numeric_only=True)
             used_tokens.add(stat_value)
             stat_blocks.append(
                 f"""
                 <div class="hero-stat reveal">
-                    <div class="hero-stat-num">{_escape(stat_value)}</div>
+                    {('<div class="hero-stat-num">' + _escape(stat_value) + '</div>') if stat_value else ''}
                     <div class="hero-stat-label">{_escape(item)}</div>
                 </div>
                 """
@@ -4027,7 +4123,7 @@ def _render_swiss_title_grid(spec: dict[str, Any], total: int) -> str:
 def _render_swiss_column_content(spec: dict[str, Any], total: int) -> str:
     slide_number = spec["slide_number"]
     title_tag = _swiss_left_title_tag("h2", spec["title"], layout_id=spec["layout_id"])
-    pairs = _spec_detail_pairs(spec, count=3)
+    pairs = _spec_detail_pairs(spec, count=5 if spec.get("supporting_facts") else 3)
     items = "".join(
         f"""
         <div class="pain-item{' accent-border' if index == 0 else ''} reveal">
@@ -4036,7 +4132,7 @@ def _render_swiss_column_content(spec: dict[str, Any], total: int) -> str:
             <div class="pain-desc">{_escape(body)}</div>
         </div>
         """
-        for index, (title, body) in enumerate(pairs[:3])
+        for index, (title, body) in enumerate(pairs)
     )
     return f"""
     <section class="slide column_content" id="slide-{slide_number}" data-notes="{_escape(spec['speaker_note'])}" aria-label="{_escape(spec['role'])}" data-export-role="column_content">
@@ -4102,7 +4198,8 @@ def _render_swiss_geometric_diagram(spec: dict[str, Any], total: int) -> str:
         """
         for index, (title, body) in enumerate(pairs[:3])
     )
-    diagram_labels = _chart_labels_from_spec(spec, count=3)
+    diagram_labels = ([f"{index + 1:02d}" for index in range(3)]
+                      if spec.get("supporting_facts") else _chart_labels_from_spec(spec, count=3))
     return f"""
     <section class="slide geometric_diagram" id="slide-{slide_number}" data-notes="{_escape(spec['speaker_note'])}" aria-label="{_escape(spec['role'])}" data-export-role="geometric_diagram">
         {_swiss_bg_num(spec)}
@@ -4137,6 +4234,12 @@ def _render_swiss_data_table(spec: dict[str, Any], total: int) -> str:
     slide_number = spec["slide_number"]
     title_tag = _title_tag("h2", "swiss-title", spec["title"], preset="Swiss Modern", layout_id=spec["layout_id"])
     pairs = _spec_detail_pairs(spec, count=3)
+    if spec.get("supporting_facts") and spec["role"] not in {"content-routing", "validation", "proof", "evidence"}:
+        facts = unique_facts(spec["supporting_facts"])[:4]
+        rows = ''.join(f'<tr><td>{index:02d}</td><td>{_escape(fact)}</td></tr>' for index, fact in enumerate(facts,1))
+        return f'''<section class="slide data_table" id="slide-{slide_number}" data-notes="{_escape(spec['speaker_note'])}" aria-label="{_escape(spec['role'])}" data-export-role="data_table">
+        {_swiss_bg_num(spec)}<div class="slide-content content"><div class="eyebrow swiss-label reveal">{_escape(spec['role'])}</div>{title_tag}
+        <p class="swiss-body reveal">{_escape(spec['key_point'])}</p><table class="data-table reveal"><thead><tr><th>#</th><th>Source fact</th></tr></thead><tbody>{rows}</tbody></table></div><span class="slide-num-label">{slide_number:02d} / {total:02d}</span></section>'''
     if spec["role"] in {"content-routing", "validation", "proof", "evidence"}:
         blocks = []
         for index, (label, body) in enumerate(pairs[:3], start=1):
@@ -4168,7 +4271,8 @@ def _render_swiss_data_table(spec: dict[str, Any], total: int) -> str:
         highlight = " class=\"highlight\"" if index == 0 else ""
         signal = _swiss_table_cell(item, max_chars=58)
         meaning = _swiss_table_cell(body, max_chars=72)
-        focus = _swiss_table_cell(_compact_display_token(item, fallback=spec["role"]), max_chars=24)
+        focus = (f"{index + 1:02d}" if spec.get("supporting_facts")
+                 else _swiss_table_cell(_compact_display_token(item, fallback=spec["role"]), max_chars=24))
         rows.append(
             f"<tr{highlight}><td>{_escape(signal)}</td><td>{_escape(meaning)}</td><td>{_escape(focus)}</td></tr>"
         )
@@ -4179,6 +4283,7 @@ def _render_swiss_data_table(spec: dict[str, Any], total: int) -> str:
         <div class="slide-content content">
             <div class="eyebrow swiss-label reveal">{_escape(spec['role'])}</div>
             {title_tag}
+            <p class="swiss-body reveal" style="margin:12px 0 20px;">{_escape(spec['key_point'])}</p>
             <table class="data-table reveal">
                 <thead>
                     <tr><th>Signal</th><th>Meaning</th><th>Focus</th></tr>
@@ -4758,6 +4863,7 @@ body.presenting .slide {{
 body.presenting .slide.p-on {{ display: flex !important; }}
 body.presenting #present-btn {{ display: none !important; }}
 body.presenting #present-counter {{ display: block; }}
+body.presenting #counter, body.presenting #slide-counter {{ display: none !important; }}
 body.presenting.presenting-black .slide {{ visibility: hidden !important; }}
 body.presenting.presenting-black::after {{
     content: '';
@@ -4854,6 +4960,9 @@ def render_swiss_modern_html(
 
 def _enterprise_extra_css() -> str:
     return """
+.ent-contrast-block--neutral { border-color: var(--accent-cyan); }
+.ent-contrast-block--neutral h4, .ent-contrast-block--neutral .ent-contrast-marker { color: var(--accent-cyan); }
+
 #brand-mark {
     display: none;
 }
@@ -5235,11 +5344,14 @@ def _enterprise_metric_value_for_label(
     metric_values: list[str],
     used_values: set[str],
     index: int,
+    *,
+    allow_fallback: bool = True,
 ) -> str | None:
     candidates = _extract_numbers(label)
-    if index < len(metric_values):
+    if allow_fallback and index < len(metric_values):
         candidates.append(metric_values[index])
-    candidates.extend(metric_values)
+    if allow_fallback:
+        candidates.extend(metric_values)
     for value in candidates:
         if value not in used_values:
             used_values.add(value)
@@ -5248,6 +5360,9 @@ def _enterprise_metric_value_for_label(
 
 
 def _enterprise_table_items(spec: dict[str, Any], *, minimum: int = 3, limit: int = 4) -> list[str]:
+    local = _dedupe_preserve(spec.get("supporting_facts", []))
+    if local:
+        return local[:limit]
     pools = [
         spec.get("supporting_facts") or [],
         spec.get("evidence_items") or [],
@@ -5326,8 +5441,9 @@ def _render_enterprise_kpi_dashboard(spec: dict[str, Any], total: int) -> str:
         # Content area: card-based KPI row
         cards = []
         for index, label in enumerate(labels[:3]):
-            trend_class = "positive" if index == 0 else ("neutral" if index == 1 else "negative")
-            metric_value = _enterprise_metric_value_for_label(label, real_numbers, used_metric_values, index)
+            trend_class = "neutral" if spec.get("supporting_facts") else ("positive" if index == 0 else ("neutral" if index == 1 else "negative"))
+            metric_value = _enterprise_metric_value_for_label(label, real_numbers, used_metric_values, index,
+                allow_fallback=not bool(spec.get("supporting_facts") or spec.get("numeric_facts")))
             if metric_value is None:
                 cards.append(
                     f"""
@@ -5366,7 +5482,7 @@ def _render_enterprise_kpi_dashboard(spec: dict[str, Any], total: int) -> str:
     <section class="slide {section_class}" id="slide-{slide_number}" data-notes="{_escape(spec['speaker_note'])}" aria-label="{_escape(spec['role'])}" data-export-role="kpi_dashboard">
         <div class="slide-content">
             <div class="ent-shell">
-                <span class="ent-label-tag reveal">AI landscape</span>
+                <span class="ent-label-tag reveal">briefing</span>
                 {title_tag}
                 <div class="ent-sep reveal"></div>
                 {subtitle_html}
@@ -5431,8 +5547,15 @@ def _render_enterprise_consulting_split(spec: dict[str, Any], total: int) -> str
         layout_id=spec["layout_id"],
         force_balance=True,
     )
-    labels = "".join(f'<div class="ent-split-label">{_escape(item)}</div>' for item in _spec_display_items(spec, limit=3))
-    pairs = _spec_detail_pairs(spec, count=3)
+    pairs = _spec_detail_pairs(spec, count=4)
+    if spec.get("supporting_facts"):
+        labels = f'<p class="ent-split-label" style="line-height:1.5;">{_escape(spec["key_point"])}</p>'
+    else:
+        # Legacy labels repeat the cards; keep only distinct source statements.
+        card_copy = {copy_key(text) for pair in pairs[:4] for text in pair}
+        labels = "".join(f'<div class="ent-split-label">{_escape(item)}</div>'
+                         for item in _spec_display_items(spec, limit=3)
+                         if copy_key(item) not in card_copy)
     accent_colors = ["ent-accent-cyan", "ent-accent-blue", "ent-accent-violet"]
     rows = "".join(
         f"""
@@ -5440,12 +5563,12 @@ def _render_enterprise_consulting_split(spec: dict[str, Any], total: int) -> str
             <div class="ent-feature-icon {accent_colors[index % len(accent_colors)]}">{index + 1}</div>
             <div style="flex:1;">
                 <h3 class="ent-split-item-title">{_escape(title)}</h3>
-                <p class="ent-split-item-copy">{_escape(body)}</p>
-                <div class="ent-prog-bar" style="margin-top:10px;"><div class="ent-prog-fill" style="width:{70 - index * 15}%"></div></div>
+                {f'<p class="ent-split-item-copy" data-copy-binding="true">{_escape(body)}</p>' if body else ''}
+                {f'<div class="ent-prog-bar" style="margin-top:10px;"><div class="ent-prog-fill" style="width:{70 - index * 15}%"></div></div>' if not spec.get('supporting_facts') else ''}
             </div>
         </div>
         """
-        for index, (title, body) in enumerate(pairs[:3])
+        for index, (title, body) in enumerate(pairs[:4])
     )
     return f"""
     <section class="slide enterprise-split" id="slide-{slide_number}" data-notes="{_escape(spec['speaker_note'])}" aria-label="{_escape(spec['role'])}" data-export-role="consulting_split">
@@ -5471,7 +5594,12 @@ def _render_enterprise_data_table(spec: dict[str, Any], total: int) -> str:
     slide_number = spec["slide_number"]
     title_tag = _title_tag("h2", "ent-title", spec["title"], preset="Enterprise Dark", layout_id=spec["layout_id"])
     rows = []
-    if spec["role"] == "checkpoint":
+    summary = ""
+    if spec.get("supporting_facts") and spec["role"] != "checkpoint":
+        rows = [f'<tr><td><span class="ent-status-dot ent-dot-blue" aria-hidden="true"></span><span class="ent-badge ent-badge-blue">{index:02d}</span></td><td colspan="2">{_escape(fact)}</td></tr>' for index, fact in enumerate(unique_facts(spec['supporting_facts'])[:4],1)]
+        headers = '<thead><tr><th>#</th><th colspan="2">Source fact</th></tr></thead>'
+        label = "evidence"
+    elif spec["role"] == "checkpoint":
         row_items = _enterprise_table_items(spec, minimum=4, limit=4)
         while len(row_items) < 4:
             row_items.append(spec["visual"])
@@ -5488,13 +5616,19 @@ def _render_enterprise_data_table(spec: dict[str, Any], total: int) -> str:
         headers = "<thead><tr><th>Ritual</th><th>Decision focus</th><th>Cadence</th></tr></thead>"
         label = "governance"
     else:
-        for index, item in enumerate(_enterprise_table_items(spec, minimum=3, limit=4)[:4]):
+        cells = [_enterprise_table_cells(item, spec["key_point"])
+                 for item in _enterprise_table_items(spec, minimum=3, limit=4)[:4]]
+        shared_meaning = len({copy_key(meaning) for _, meaning in cells}) == 1
+        if shared_meaning and cells:
+            summary = f'<p class="ent-table-summary">{_escape(cells[0][1])}</p>'
+        for index, (signal, meaning) in enumerate(cells):
             dot = "ent-dot-green" if index == 0 else ("ent-dot-blue" if index == 1 else "ent-dot-red")
-            signal, meaning = _enterprise_table_cells(item, spec["key_point"])
+            meaning_cell = "" if shared_meaning else f'<td>{_escape(meaning)}</td>'
             rows.append(
-                f"<tr><td><span class=\"ent-status-dot {dot}\"></span>{_escape(signal)}</td><td>{_escape(meaning)}</td><td><span class=\"ent-badge {'ent-badge-green' if index == 0 else 'ent-badge-blue'}\">{_escape(spec['role'])}</span></td></tr>"
+                f"<tr><td><span class=\"ent-status-dot {dot}\"></span>{_escape(signal)}</td>{meaning_cell}<td><span class=\"ent-badge {'ent-badge-green' if index == 0 else 'ent-badge-blue'}\">{_escape(spec['role'])}</span></td></tr>"
             )
-        headers = "<thead><tr><th>Signal</th><th>Meaning</th><th>State</th></tr></thead>"
+        headers = ("<thead><tr><th>Signal</th><th>State</th></tr></thead>" if shared_meaning
+                   else "<thead><tr><th>Signal</th><th>Meaning</th><th>State</th></tr></thead>")
         label = "evidence"
     return f"""
     <section class="slide enterprise-table" id="slide-{slide_number}" data-notes="{_escape(spec['speaker_note'])}" aria-label="{_escape(spec['role'])}" data-export-role="data_table">
@@ -5503,6 +5637,7 @@ def _render_enterprise_data_table(spec: dict[str, Any], total: int) -> str:
                 <span class="ent-label-tag reveal">{label}</span>
                 {title_tag}
                 <div class="ent-sep reveal"></div>
+                {summary}
                 <table class="ent-table reveal">
                     {headers}
                     <tbody>{''.join(rows)}</tbody>
@@ -5555,7 +5690,7 @@ def _render_enterprise_feature_grid(spec: dict[str, Any], total: int) -> str:
                     </div>
                 </div>
                 <p class="ent-feature-card-copy">{_escape(body)}</p>
-                <div class="ent-prog-bar"><div class="ent-prog-fill" style="width:{78 - index * 14}%"></div></div>
+                {f'<div class="ent-prog-bar"><div class="ent-prog-fill" style="width:{78 - index * 14}%"></div></div>' if not spec.get('supporting_facts') else ''}
             </div>
             """
         )
@@ -5607,35 +5742,39 @@ def _render_enterprise_comparison_matrix(spec: dict[str, Any], total: int) -> st
 def _render_enterprise_contrast_split(spec: dict[str, Any], total: int) -> str:
     slide_number = spec["slide_number"]
     title_tag = _title_tag("h2", "ent-title", spec["title"], preset="Enterprise Dark", layout_id=spec["layout_id"])
-    items = _spec_display_items(spec, limit=4)
-    if len(items) >= 4:
+    local = _dedupe_preserve(spec.get("supporting_facts", []))
+    items = local or _spec_display_items(spec, limit=4)
+    if local:
+        split = max(1, (len(items) + 1) // 2)
+        neg_items, pos_items = items[:split], items[split:]
+    elif len(items) >= 4:
         neg_items = items[:len(items) // 2]
         pos_items = items[len(items) // 2:]
     else:
         neg_items = items[:1] + [spec["key_point"]]
         pos_items = items[1:] + [spec["key_point"]]
     neg_rows = "".join(
-        f'<div class="ent-contrast-item"><span class="ent-contrast-marker">&#x2717;</span>{_escape(item)}</div>'
+        f'<div class="ent-contrast-item"><span class="ent-contrast-marker">{"&#x2022;" if local else "&#x2717;"}</span>{_escape(item)}</div>'
         for item in neg_items
     )
     pos_rows = "".join(
-        f'<div class="ent-contrast-item"><span class="ent-contrast-marker">&#x2713;</span>{_escape(item)}</div>'
+        f'<div class="ent-contrast-item"><span class="ent-contrast-marker">{"&#x2022;" if local else "&#x2713;"}</span>{_escape(item)}</div>'
         for item in pos_items
     )
     return f"""
     <section class="slide enterprise-contrast" id="slide-{slide_number}" data-notes="{_escape(spec['speaker_note'])}" aria-label="{_escape(spec['role'])}" data-export-role="contrast_split">
         <div class="slide-content">
             <div class="ent-shell">
-                <span class="ent-label-tag reveal">对比</span>
+                <span class="ent-label-tag reveal">{'Requirements' if local else 'Comparison'}</span>
                 {title_tag}
                 <div class="ent-sep reveal"></div>
                 <div class="ent-contrast-split reveal">
-                    <div class="ent-contrast-block ent-contrast-block--negative">
-                        <h4>Before</h4>
+                    <div class="ent-contrast-block {'ent-contrast-block--neutral' if local else 'ent-contrast-block--negative'}">
+                        <h4>{'01' if local else 'Before'}</h4>
                         {neg_rows}
                     </div>
-                    <div class="ent-contrast-block ent-contrast-block--positive">
-                        <h4>After</h4>
+                    <div class="ent-contrast-block {'ent-contrast-block--neutral' if local else 'ent-contrast-block--positive'}">
+                        <h4>{'02' if local else 'After'}</h4>
                         {pos_rows}
                     </div>
                 </div>
@@ -5724,8 +5863,9 @@ def _render_enterprise_cta_close(spec: dict[str, Any], total: int) -> str:
     used_metric_values: set[str] = set()
     card_html = []
     for index, item in enumerate(items[:3]):
-        metric_value = _enterprise_metric_value_for_label(item, metric_values, used_metric_values, index)
-        trend_class = "positive" if index == 2 else "neutral"
+        metric_value = _enterprise_metric_value_for_label(item, metric_values, used_metric_values, index,
+            allow_fallback=not bool(spec.get("supporting_facts") or spec.get("numeric_facts")))
+        trend_class = "neutral" if spec.get("supporting_facts") else ("positive" if index == 2 else "neutral")
         if metric_value is None:
             card_html.append(
                 f'<div class="ent-kpi-card reveal"><div class="ent-kpi-label" style="text-transform:none;font-size:clamp(13px,1.3vw,16px);letter-spacing:0;max-width:260px">{_escape(item)}</div></div>'
@@ -5741,7 +5881,7 @@ def _render_enterprise_cta_close(spec: dict[str, Any], total: int) -> str:
                 <span class="ent-label-tag reveal">close</span>
                 {title_tag}
                 <div class="ent-sep reveal"></div>
-                <div class="ent-code reveal"><span class="green">thesis</span> = {_escape(spec['key_point'])}</div>
+                <p class="ent-code reveal">{_escape(spec['key_point'])}</p>
                 <div class="ent-kpi-row" style="margin-top:18px;">
                     {''.join(card_html)}
                 </div>
@@ -6300,10 +6440,8 @@ body[data-preset="Data Story"] .ds-workflow .ds-stage-copy {
     font-size: clamp(0.86rem, 1.18vw, 0.98rem);
     line-height: 1.46;
     overflow-wrap: anywhere;
-    display: -webkit-box;
-    -webkit-line-clamp: 3;
-    -webkit-box-orient: vertical;
-    overflow: hidden;
+    display: block;
+    overflow: visible;
 }
 
 .ds-cta-block {
@@ -6384,7 +6522,8 @@ def _render_data_story_stage_grid(spec: dict[str, Any], *, count: int = 4, prefi
             </div>
             """
         )
-    return f'<div class="ds-stage-grid">{"".join(cards)}</div>'
+    variant = " ds-stage-grid--evidence" if prefix == "evidence" else " ds-stage-grid--phase"
+    return f'<div class="ds-stage-grid{variant}">{"".join(cards)}</div>'
 
 
 def _data_story_interaction_keycap(title: str, body: str, index: int) -> str:
@@ -6429,8 +6568,8 @@ def _render_data_story_interaction_panel(spec: dict[str, Any]) -> str:
             """
         )
 
-    mode = " / ".join(_dedupe_preserve([pairs[0][0], pairs[1][0]])[:2])
-    edit = " / ".join(_dedupe_preserve([pairs[2][0], pairs[3][0]])[:2])
+    mode = " / ".join(_dedupe_preserve([title for title, _ in pairs[:2]]))
+    edit = " / ".join(_dedupe_preserve([title for title, _ in pairs[2:4]]))
     loop = _compact_display_token(spec["key_point"], fallback="Live deck")
     return f"""
     <div class="ds-interaction-layout">
@@ -6496,13 +6635,22 @@ def _render_data_story_hero_number(spec: dict[str, Any], total: int) -> str:
     title_tag = _title_tag("h1", "ds-heading", spec["title"], preset="Data Story", layout_id=spec["layout_id"])
     value = _metric_values_from_spec(spec, [_compact_display_token(spec["title"], fallback="关键")])[0]
     label = _split_supporting_phrases(spec["key_point"], minimum=1)[0]
+    if spec.get("supporting_facts") or spec.get("numeric_facts"):
+        pool = _dedupe_preserve([*spec.get("numeric_facts", []), *spec.get("supporting_facts", []),
+                                 *spec.get("supporting_items", []), *spec.get("evidence_items", [])])
+        title_numbers = _extract_numbers(spec["title"])
+        if title_numbers and any(title_numbers[0] in _extract_numbers(fact) for fact in pool):
+            value = title_numbers[0]
+        # A prominent number must have its own source label, rather than an
+        # unrelated first clause from the page explanation.
+        label = next((fact for fact in pool if value in _extract_numbers(fact)), label)
     if spec["role"] == "cover":
         summary = _cover_summary_without_metric_label(spec["key_point"], label)
         return f"""
     <section class="slide ds-hero-number ds-cover-hero" id="slide-{slide_number}" data-notes="{_escape(spec['speaker_note'])}" aria-label="{_escape(spec['role'])}" data-export-role="hero_number">
         <div class="slide-content ds-hero-slide">
             <div class="ds-shell">
-                <div class="ds-subhead reveal">AI industry landscape</div>
+                <div class="ds-subhead reveal">evidence</div>
                 {title_tag}
                 <div class="ds-cover-metric reveal">
                     <div class="ds-kpi positive">{_escape(value)}</div>
@@ -6518,7 +6666,7 @@ def _render_data_story_hero_number(spec: dict[str, Any], total: int) -> str:
     <section class="slide ds-hero-number" id="slide-{slide_number}" data-notes="{_escape(spec['speaker_note'])}" aria-label="{_escape(spec['role'])}" data-export-role="hero_number">
         <div class="slide-content ds-hero-slide">
             <div class="ds-shell">
-                <div class="ds-subhead reveal">AI industry landscape</div>
+                <div class="ds-subhead reveal">evidence</div>
                 <div class="ds-kpi positive reveal">{_escape(value)}</div>
                 <div class="ds-kpi-label reveal">{_escape(label)}</div>
                 {title_tag}
@@ -6533,7 +6681,7 @@ def _render_data_story_hero_number(spec: dict[str, Any], total: int) -> str:
 def _render_data_story_kpi_chart(spec: dict[str, Any], total: int) -> str:
     slide_number = spec["slide_number"]
     title_tag = _title_tag("h2", "ds-heading", spec["title"], preset="Data Story", layout_id=spec["layout_id"])
-    labels = _spec_display_items(spec, limit=3)
+    labels = _dedupe_preserve([*spec.get("numeric_facts", []), *_spec_display_items(spec, limit=3)])[:3]
     used_tokens: set[str] = set()
     metric_values = []
     for index, item in enumerate(labels):
@@ -6543,15 +6691,15 @@ def _render_data_story_kpi_chart(spec: dict[str, Any], total: int) -> str:
     chart_values = _chart_metric_values_from_spec(spec, ["1", "2", "3"])
     chart = (
         _svg_bar_chart(_chart_labels_from_spec(spec, count=3), chart_values)
-        if chart_values
+        if chart_values and spec.get("chart_policy") != "avoid"
         else _render_data_story_stage_grid(spec, count=3, prefix="metric")
     )
     cards = "".join(
         f"""
         <div class="ds-kpi-card reveal">
-            <div class="ds-kpi">{_escape(metric_values[index])}</div>
+            {('<div class="ds-kpi">' + _escape(metric_values[index]) + '</div>') if metric_values[index] else ''}
             <div class="ds-kpi-label">{_escape(item)}</div>
-            <div class="ds-trend {'up' if index < 2 else 'down'}">{'▲' if index < 2 else '▼'} {_escape(spec['role'])}</div>
+            <div class="ds-trend">{_escape(spec['role'])}</div>
         </div>
         """
         for index, item in enumerate(labels)
@@ -6585,22 +6733,23 @@ def _render_data_story_chart_insight(spec: dict[str, Any], total: int) -> str:
     slide_number = spec["slide_number"]
     title_tag = _title_tag("h2", "ds-heading", spec["title"], preset="Data Story", layout_id=spec["layout_id"])
     chart_values = _chart_metric_values_from_spec(spec, ["1", "2", "3", "4"])
-    if spec["role"] == "interaction" and not chart_values:
+    runtime_copy = " ".join([*spec.get("supporting_facts", []), spec["key_point"]])
+    runtime_interaction = bool(re.search(r"\bF5\b|Ctrl\+S|presenter|inline edit|play mode|edit mode|播放|编辑|导出", runtime_copy, re.I))
+    if spec["role"] == "interaction" and not chart_values and runtime_interaction:
         chart_container = _render_data_story_interaction_panel(spec)
     elif chart_values and spec.get("chart_policy") != "avoid":
         insight_body = _svg_line_chart(_chart_labels_from_spec(spec, count=4), chart_values)
         chart_container = _render_data_story_visual_container(insight_body)
-    elif spec.get("chart_policy") == "avoid":
+    elif spec.get("chart_policy") == "avoid" or spec.get("numeric_facts"):
         insight_body = _render_data_story_stage_grid(spec, count=4, prefix="evidence")
         chart_container = _render_data_story_visual_container(insight_body)
     else:
-        insight_body = _data_story_non_numeric_svg(spec)
-        chart_container = _render_data_story_visual_container(insight_body)
+        chart_container = _render_data_story_visual_container(_data_story_non_numeric_svg(spec))
     return f"""
     <section class="slide ds-chart-insight" id="slide-{slide_number}" data-notes="{_escape(spec['speaker_note'])}" aria-label="{_escape(spec['role'])}" data-export-role="chart_insight">
         <div class="slide-content">
             <div class="ds-shell">
-                <div class="ds-subhead reveal">trend</div>
+                <div class="ds-subhead reveal">{'trend' if chart_values else 'evidence'}</div>
                 {title_tag}
                 <div class="ds-divider reveal"></div>
                 {chart_container}
@@ -6646,17 +6795,17 @@ def _render_data_story_kpi_grid(spec: dict[str, Any], total: int) -> str:
     title_tag = _title_tag("h2", "ds-heading", spec["title"], preset="Data Story", layout_id=spec["layout_id"])
     numeric_fact_count = len(_primary_numbers_from_numeric_facts(spec))
     card_count = numeric_fact_count if 3 <= numeric_fact_count < 4 else 4
-    items = _spec_display_items(spec, limit=card_count)
+    items = _dedupe_preserve([*spec.get("numeric_facts", []), *_spec_display_items(spec, limit=card_count)])[:card_count]
     cards = []
     for index, item in enumerate(items[:card_count]):
-        tone = "positive" if index == 0 else ("negative" if index == 2 else "neutral")
+        tone = "neutral" if spec.get("supporting_facts") else ("positive" if index == 0 else ("negative" if index == 2 else "neutral"))
         value = _metric_value_for_item(item, spec, index=index, numeric_only=True)
         cards.append(
             f"""
             <div class="ds-kpi-card reveal">
-                <div class="ds-kpi {tone}">{_escape(value)}</div>
+                {('<div class="ds-kpi ' + tone + '">' + _escape(value) + '</div>') if value else ''}
                 <div class="ds-kpi-label">{_escape(item)}</div>
-                <div class="ds-trend {'up' if index != 2 else 'down'}">{'▲' if index != 2 else '▼'} {_escape(spec['role'])}</div>
+                <div class="ds-trend">{_escape(spec['role'])}</div>
             </div>
             """
         )
@@ -6681,7 +6830,7 @@ def _render_data_story_workflow_chart(spec: dict[str, Any], total: int) -> str:
     chart_values = _chart_metric_values_from_spec(spec, ["1", "2", "3", "4"])
     if chart_values and spec.get("chart_policy") != "avoid":
         chart = _svg_line_chart(_chart_labels_from_spec(spec, count=4, family="workflow"), chart_values)
-    elif spec.get("chart_policy") == "avoid":
+    elif spec.get("chart_policy") == "avoid" or spec.get("numeric_facts"):
         chart = _render_data_story_stage_grid(spec, count=4, prefix="phase")
     else:
         chart = _data_story_non_numeric_svg(spec)
@@ -6714,7 +6863,27 @@ def _render_data_story_cta_close(spec: dict[str, Any], total: int) -> str:
         layout_id=spec["layout_id"],
         force_balance=True,
     )
+    local_facts = unique_facts([str(fact) for fact in spec.get("supporting_facts", [])])
+    if local_facts and _data_story_has_numeric_cta_signal(spec, local_facts):
+        # Closing summaries must not rewrite measured entities. Use the
+        # complete local statements, including late-listed review blockers.
+        decision_copy = str(spec.get("desired_action") or spec.get("claim") or spec["title"])
+        facts = [fact for fact in local_facts[:5] if copy_key(fact) != copy_key(decision_copy)] or local_facts[:1]
+        cards = ''.join('<div class="ds-kpi-card reveal"><div class="ds-kpi-label" style="text-transform:none;">' + _escape(fact) + '</div></div>' for fact in facts)
+        return f"""
+    <section class="slide ds-close" id="slide-{slide_number}" data-notes="{_escape(spec['speaker_note'])}" aria-label="{_escape(spec['role'])}" data-export-role="cta_close">
+      <div class="slide-content"><div class="ds-shell ds-cta-block">
+        <div><div class="ds-subhead reveal">closing readout</div>{title_tag}<div class="ds-divider reveal"></div>
+          <div class="ds-insight reveal"><strong>Decision:</strong> {_escape(decision_copy)}</div></div>
+        <div class="ds-kpi-grid">{cards}</div>
+      </div></div><span class="slide-num-label">{slide_number:02d} / {total:02d}</span>
+    </section>""".strip()
     items = _spec_display_items(spec, limit=2)
+    decision_copy = spec.get("desired_action") or spec["key_point"]
+    if decision_copy != spec["key_point"]:
+        extra = non_repeating_copy(spec["key_point"], [*items, decision_copy])
+        if extra:
+            decision_copy += " " + extra
     if not _data_story_has_numeric_cta_signal(spec, items):
         action_grid = _render_data_story_action_grid(spec)
         return f"""
@@ -6725,7 +6894,7 @@ def _render_data_story_cta_close(spec: dict[str, Any], total: int) -> str:
                     <div class="ds-subhead reveal">closing readout</div>
                     {title_tag}
                     <div class="ds-divider reveal"></div>
-                    <div class="ds-insight reveal"><strong>Decision:</strong> {_escape(spec['key_point'])}</div>
+                    <div class="ds-insight reveal"><strong>Decision:</strong> {_escape(decision_copy)}</div>
                 </div>
                 {action_grid}
             </div>
@@ -6735,9 +6904,9 @@ def _render_data_story_cta_close(spec: dict[str, Any], total: int) -> str:
     """.strip()
 
     used_tokens: set[str] = set()
-    value0 = _metric_value_for_item(items[0], spec, index=0, used_tokens=used_tokens)
+    value0 = _metric_value_for_item(items[0], spec, index=0, used_tokens=used_tokens, numeric_only=True)
     used_tokens.add(value0)
-    value1 = _metric_value_for_item(items[1], spec, index=1, used_tokens=used_tokens)
+    value1 = _metric_value_for_item(items[1], spec, index=1, used_tokens=used_tokens, numeric_only=True)
     return f"""
     <section class="slide ds-close" id="slide-{slide_number}" data-notes="{_escape(spec['speaker_note'])}" aria-label="{_escape(spec['role'])}" data-export-role="cta_close">
         <div class="slide-content">
@@ -6746,11 +6915,11 @@ def _render_data_story_cta_close(spec: dict[str, Any], total: int) -> str:
                     <div class="ds-subhead reveal">closing readout</div>
                     {title_tag}
                     <div class="ds-divider reveal"></div>
-                    <div class="ds-insight reveal"><strong>Decision:</strong> {_escape(spec['key_point'])}</div>
+                    <div class="ds-insight reveal"><strong>Decision:</strong> {_escape(decision_copy)}</div>
                 </div>
                 <div class="ds-kpi-grid">
-                    <div class="ds-kpi-card reveal"><div class="ds-kpi positive">{_escape(value0)}</div><div class="ds-kpi-label">{_escape(items[0])}</div></div>
-                    <div class="ds-kpi-card reveal"><div class="ds-kpi neutral">{_escape(value1)}</div><div class="ds-kpi-label">{_escape(items[1])}</div></div>
+                    <div class="ds-kpi-card reveal">{('<div class="ds-kpi neutral">' + _escape(value0) + '</div>') if value0 else ''}<div class="ds-kpi-label">{_escape(items[0])}</div></div>
+                    <div class="ds-kpi-card reveal">{('<div class="ds-kpi neutral">' + _escape(value1) + '</div>') if value1 else ''}<div class="ds-kpi-label">{_escape(items[1])}</div></div>
                 </div>
             </div>
         </div>
@@ -6903,6 +7072,11 @@ body[data-preset="Chinese Chan"] .zen-vertical-shell {
     position: relative;
 }
 
+body[data-preset="Chinese Chan"] .zen-vertical-title {
+    font-size: clamp(1.6rem, 3.5vh, 2.2rem);
+    max-height: 40vh;
+}
+
 body[data-preset="Chinese Chan"] .zen-vertical-caption {
     position: static;
     text-align: center;
@@ -6957,6 +7131,11 @@ def _chinese_chan_caption(spec: dict[str, Any], language: str) -> str:
 
 
 def _chinese_chan_copy_items(spec: dict[str, Any], *, count: int = 3) -> list[str]:
+    facts = unique_facts([str(item) for item in spec.get("supporting_facts", [])])
+    if facts:
+        # Complete local statements outrank fragments derived from prose.
+        # Sparse facts do not justify repeated or unfinished filler items.
+        return facts[:count]
     items = _dedupe_preserve(
         [
             *spec.get("supporting_facts", []),
@@ -7080,6 +7259,7 @@ def _render_chinese_chan_center(spec: dict[str, Any], total: int, *, language: s
             <div class="zen-caption reveal">{_escape(_chinese_chan_caption(spec, language))}</div>
             {title_tag}
             <p class="zen-body zen-cn reveal" style="margin-top: 18px;">{_escape(spec['key_point'])}</p>
+            <ul class="zen-list zen-cn reveal">{''.join('<li>' + _escape(fact) + '</li>' for fact in spec.get('supporting_facts', [])[:3] if _normalize_match_text(fact) not in _normalize_match_text(spec['key_point']))}</ul>
             {separator}
         </div>
         <span class="slide-num-label zen-caption">{slide_number:02d} / {total:02d}</span>
@@ -7212,6 +7392,7 @@ def _render_chinese_chan_vertical(spec: dict[str, Any], total: int) -> str:
             <div class="zen-seal"></div>
             <div class="zen-vertical-caption">
                 <p class="zen-body zen-cn reveal">{_escape(spec['key_point'])}</p>
+                <ul class="zen-list zen-cn reveal">{''.join('<li>' + _escape(fact) + '</li>' for fact in spec.get('supporting_facts', [])[:3] if fact != spec['key_point'])}</ul>
             </div>
         </div>
         <span class="slide-num-label zen-caption">{slide_number:02d} / {total:02d}</span>
@@ -7280,7 +7461,7 @@ def _blue_sky_title_tag(tag: str, text: str, *, layout_id: str, extra_attrs: str
 
 
 def _blue_sky_display_items(spec: dict[str, Any], *, limit: int | None = None) -> list[str]:
-    items = _dedupe_preserve(
+    items = unique_facts(
         [
             *[str(item) for item in spec.get("supporting_facts", [])],
             *[str(item) for item in spec.get("supporting_items", [])],
@@ -7531,14 +7712,22 @@ def _render_blue_sky_action_cards(spec: dict[str, Any], items: list[str]) -> str
     accent_classes = [" info", " co", "", ""]
     for index, item in enumerate(items[:4]):
         title, body = _blue_sky_item_parts(item)
-        body = body or item
-        is_command = bool(re.search(r"install|clawhub|https?://|/slide-creator", body, flags=re.IGNORECASE))
-        body_html = f'<div class="cmd" style="margin-top:10px;">{_escape(body)}</div>' if is_command else f'<p style="margin-top:8px;">{_escape(body)}</p>'
+        is_command = bool(re.search(r"install|clawhub|https?://|/slide-creator", body or item, flags=re.IGNORECASE))
+        title_html = f'<span class="pill green" data-audience-fact="true">{_escape(title)}</span>'
+        if is_command and not body:
+            title_html = ""
+            body_html = f'<div class="cmd audience-copy" style="margin-top:10px;">{_escape(item)}</div>'
+        elif body:
+            body_html = f'<div class="cmd audience-copy" style="margin-top:10px;">{_escape(body)}</div>' if is_command else f'<p style="margin-top:8px;">{_escape(body)}</p>'
+        else:
+            # A complete fact is body content, rather than a label-only card.
+            title_html = ""
+            body_html = f'<p>{_escape(item)}</p>'
         card_class = f"g{accent_classes[index]}"
         cards.append(
             f"""
             <div class="{card_class}" style="padding:18px 20px;text-align:left;">
-              <span class="pill green">{_escape(title)}</span>
+              {title_html}
               {body_html}
             </div>
             """
@@ -7699,7 +7888,7 @@ def _render_blue_sky_slide(
         cover_pill = _blue_sky_cover_pill_text(spec, cover_items, cover_metrics)
         stat_items = []
         for stat_val, stat_label in cover_metrics:
-            label_html = f'<p style="font-size:0.78rem;margin-top:2px;">{_escape(stat_label)}</p>' if stat_label else ""
+            label_html = f'<p class="blue-metric-label" style="font-size:0.78rem;margin-top:2px;">{_escape(stat_label)}</p>' if stat_label else ""
             stat_items.append(
                 f'<div class="g" style="padding:16px 28px;text-align:center;">'
                 f'<div class="stat" style="font-size:2.8rem;">{_escape(stat_val)}</div>'
@@ -7820,10 +8009,12 @@ def _render_blue_sky_slide(
 
     # Two-column comparison
     if layout_id == "comparison":
-        left_items = all_items[:len(all_items)//2]
-        right_items = all_items[len(all_items)//2:]
+        split = max(1, len(all_items) // 2)
+        left_items = all_items[:split]
+        right_items = all_items[split:]
         left_html = "".join(f"<li>{_escape(i)}</li>" for i in left_items)
         right_html = "".join(f"<li>{_escape(i)}</li>" for i in right_items)
+        panels_html = ''.join('<div class="g" style="padding:22px 24px;"><ul class="bl">' + panel + '</ul></div>' for panel in (left_html, right_html) if panel)
         return f"""
     <!-- slide {slide_number}: {role} -->
     <section class="slide" id="slide-{slide_number}" data-notes="{speaker_note}" aria-label="{role_attr}" data-export-role="{role_attr}">
@@ -7832,8 +8023,7 @@ def _render_blue_sky_slide(
         {section_title}
         <div class="divider"></div>
         <div class="cols2">
-          <div class="g" style="padding:22px 24px;"><ul class="bl">{left_html}</ul></div>
-          <div class="g" style="padding:22px 24px;"><ul class="bl">{right_html}</ul></div>
+          {panels_html}
         </div>
         <p style="margin-top:14px;color:var(--text-secondary);font-size:0.9rem;">{key_point}</p>
       </div>
@@ -7886,7 +8076,9 @@ def _render_blue_sky_slide(
     # Evidence / data slide
     if layout_id == "table":
         table_rows = ""
-        table_items = all_items or [spec["key_point"]]
+        # The explicit facts are the source statements. Derived item/numeric
+        # indexes must not become a second row for the same observation.
+        table_items = unique_facts([str(item) for item in facts]) or all_items or [spec["key_point"]]
         for idx, item in enumerate(table_items[:8], 1):
             table_rows += f'<tr><td>{idx}</td><td>{_escape(item)}</td></tr>'
         return f"""
@@ -8202,10 +8394,10 @@ def _render_iridescence_theme_slide(spec: dict[str, Any], total: int, *, role_in
         body = (
             f'{header(lead=False)}'
             '<div class="iri-fracture-grid">'
-            '<div class="iri-fracture-side">'
+            '<div class="iri-fracture-side"><h3 class="iri-accent-text-primary">FACTS</h3>'
             + "".join(f'<div class="iri-fracture-item kd-reveal">{_escape(item)}</div>' for item in left)
             + '</div><div class="iri-fracture-scar" aria-hidden="true"></div>'
-            '<div class="iri-fracture-side">'
+            '<div class="iri-fracture-side"><h3 class="iri-accent-text-primary">FACTS CONTINUED</h3>'
             + "".join(f'<div class="iri-fracture-item kd-reveal">{_escape(item)}</div>' for item in right)
             + '</div></div>'
         )
@@ -8222,8 +8414,9 @@ def _render_iridescence_theme_slide(spec: dict[str, Any], total: int, *, role_in
         fields = "".join(
             '<div class="iri-field kd-reveal">'
             f'<span class="iri-number iri-accent-text-primary">{index:02d}</span>'
-            f'<span>{_escape(_iridescence_split_item(item)[0])}</span>'
-            f'<span>{_escape(_iridescence_split_item(item)[1])}</span>'
+            + (f'<code class="iri-accent-text-primary">{_escape(_iridescence_split_item(item)[0])}</code><span>{_escape(_iridescence_split_item(item)[1])}</span>'
+               if _iridescence_split_item(item)[1] or re.fullmatch(r"[A-Za-z_$][\w.$+-]*", _iridescence_split_item(item)[0]) else f'<span style="grid-column:2 / span 2;">{_escape(item)}</span>')
+            +
             '</div>'
             for index, item in enumerate(items[:5], start=1)
         )
@@ -8296,7 +8489,7 @@ def _render_iridescence_theme_slide(spec: dict[str, Any], total: int, *, role_in
         split_items = [_iridescence_split_item(item) for item in items[:6]]
         keys = "".join(
             '<div class="iri-key kd-reveal">'
-            f'<b class="iri-accent-text-primary">{index:02d}</b>'
+            f'<b class="iri-accent-text-primary">{_escape(label) if description else f"{index:02d}"}</b>'
             f'<span>{_escape(description or label)}</span>'
             '</div>'
             for index, (label, description) in enumerate(split_items, start=1)
@@ -8365,6 +8558,12 @@ def _render_custom_theme_slide(
     role_index: int,
 ) -> str:
     """Render a slide using theme-specific component classes from the style contract."""
+    effect_themes = {"shader hero": "shader-hero", "molten flow": "molten-flow", "stellar vortex": "stellar-vortex"}
+    effect_theme = effect_themes.get(_normalize_preset_name(style_contract.get("preset", "")))
+    if effect_theme:
+        from shader_hero_renderer import render_shader_hero_slide
+
+        return render_shader_hero_slide(spec, total, role_index=role_index, theme=effect_theme)
     if _normalize_preset_name(style_contract.get("preset", "")) in {
         "fantasy rainbow",
         "iridescence convergence",
@@ -8542,6 +8741,10 @@ def render_custom_theme_html(
         images = _extract_starter_image_urls(starter_path)
         theme_decor = _extract_starter_theme_decor(starter_path)
         theme_runtime = _extract_starter_theme_runtime(starter_path)
+        if theme_dir.name in {"shader-hero", "molten-flow", "stellar-vortex"} and brief["runtime"]["export_intent"] != "none":
+            # Export is a generation-time decision: no canvas or GPU setup in the artifact.
+            theme_decor = re.sub(r"<canvas\b[^>]*>.*?</canvas>", "", theme_decor, flags=re.DOTALL)
+            theme_runtime = ""
     else:
         starter_css = "\n\n".join(style_contract["css_blocks"]) + """
 
@@ -8584,7 +8787,25 @@ body {
         for i, spec in enumerate(specs)
     )
 
-    # Use starter.html CSS directly, skip the generic shell CSS
+    # Themes own their content CSS, but legacy starters may omit editor chrome.
+    from bs4 import BeautifulSoup
+    decor_soup = BeautifulSoup(theme_decor, "html.parser")
+    shell_chrome = ("" if decor_soup.select_one(".progress-bar") else '<div class="progress-bar" aria-hidden="true"></div>')
+    shell_chrome += "" if decor_soup.select_one(".nav-dots") else '<div class="nav-dots"></div>'
+    chrome_css = ""
+    if not decor_soup.select_one(".progress-bar"):
+        chrome_css += ".progress-bar { position:fixed; top:0; left:0; height:3px; z-index:9990; background:var(--kd-blue,#3b82f6); }\n"
+    if not decor_soup.select_one(".nav-dots"):
+        chrome_css += ".nav-dots button { width:8px; height:8px; border:0; padding:0; border-radius:50%; background:var(--kd-blue,#3b82f6); }\n"
+    notes_css = ""
+    if not re.search(r"#notes-panel\s*\{", starter_css):
+        notes_css = """
+#notes-panel { position:fixed; right:18px; bottom:18px;
+    width:min(380px,calc(100vw - 36px)); max-height:45vh; overflow:auto;
+    background:var(--bg,#fff); color:var(--text,#18243c);
+    border:1px solid rgba(0,0,0,.15); padding:12px; z-index:9996; }
+#notes-textarea { width:100%; min-height:90px; box-sizing:border-box; }
+"""
     js_engine = _extract_js_engine_blocks(preset=display_preset, version=_skill_version())
     brand_mark = _brand_mark_text(brief["title"], display_preset)
     provenance_attrs = _html_body_provenance_attrs(packet)
@@ -8597,6 +8818,14 @@ body {
 <title>{_escape(brief['title'])} - {_escape(display_preset)}</title>
 <style>
 {starter_css}
+{notes_css}
+#notes-panel {{ display:none; }}
+#notes-panel.active {{ display:block; }}
+{chrome_css}
+body[data-preset="Kingdee"] .title-sub {{ color:var(--text-primary,#444); background:var(--bg-primary,#fff); padding:8px 12px; }}
+@media (min-width:720px) {{
+body[data-preset="Kingdee"] .slide-title .title-content {{ max-width:calc(45vw - 60px); }}
+}}
 
 /* Present mode */
 body.presenting {{
@@ -8620,6 +8849,7 @@ body.presenting .slide.p-on {{
 }}
 body.presenting #present-btn {{ display: none !important; }}
 body.presenting #present-counter {{ display: block; }}
+body.presenting #counter, body.presenting #slide-counter {{ display: none !important; }}
 body.presenting.presenting-black .slide {{ visibility: hidden !important; }}
 body.presenting .slide-credit {{ display: none !important; }}
 
@@ -8653,6 +8883,7 @@ body.presenting .slide-credit {{ display: none !important; }}
 <span id="brand-mark">{_escape(brand_mark)}</span>
 {theme_decor}
 {slides_html}
+{shell_chrome}
 <div class="edit-hotzone"></div>
 <button id="editToggle" class="edit-toggle" type="button" title="Edit mode (E)" aria-label="Edit mode">Edit</button>
 <div id="notes-panel">
@@ -8732,7 +8963,8 @@ def render_from_brief(brief: dict[str, Any]) -> tuple[str, dict[str, Any], dict[
             f"Low-context render does not have a valid strategy for {preset}; got {renderer_strategy}"
         )
     html_text = _annotate_preset_content_scope(html_text, preset)
-    return _annotate_page_buckets(html_text), packet, style_contract
+    html_text = apply_audience_readability(_annotate_page_buckets(html_text))
+    return html_text, packet, style_contract
 
 
 def render_from_context_text(text: str) -> tuple[dict[str, Any], str, dict[str, Any], dict[str, Any]]:
