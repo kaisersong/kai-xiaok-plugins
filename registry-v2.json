@@ -25,7 +25,7 @@
         "win32"
       ],
       "source": {
-        "commit": "0bd269ecbed6959d1d2b056340f10271a52186f1",
+        "commit": "d86686dbe6140e6569e6b728fb90ecdb8e2a635b",
         "treeSha256": "42ec41de366189706459152129d531d7d04e5e5a91347e595f91c9b8c3846c2c"
       },
       "install": {
@@ -63,7 +63,7 @@
         "win32"
       ],
       "source": {
-        "commit": "0bd269ecbed6959d1d2b056340f10271a52186f1",
+        "commit": "d86686dbe6140e6569e6b728fb90ecdb8e2a635b",
         "treeSha256": "606a40d68706c130f83ab08d236d8d61ce2566d028c184b00aaba8c6ed11d467"
       },
       "install": {
@@ -109,7 +109,7 @@
       "path": "plugins/kai-meeting-assistant",
       "version": "0.2.0",
       "source": {
-        "commit": "0bd269ecbed6959d1d2b056340f10271a52186f1",
+        "commit": "d86686dbe6140e6569e6b728fb90ecdb8e2a635b",
         "treeSha256": "2a1b7028b3bda3e38c5e077c03c389c42cfc8f44482e99c4a94c072ce9ee6c68"
       },
       "install": {
@@ -141,10 +141,10 @@
       ],
       "repo": "kaisersong/kai-xiaok-plugins",
       "path": "plugins/kai-report-creator",
-      "version": "2.5.0",
+      "version": "2.5.1",
       "source": {
-        "commit": "0bd269ecbed6959d1d2b056340f10271a52186f1",
-        "treeSha256": "2536fa9c7e8bc1b566e3eaa07562807d83af0c6a56bb9117e6985166ba7fd170"
+        "commit": "d86686dbe6140e6569e6b728fb90ecdb8e2a635b",
+        "treeSha256": "b555020409fac6b253cf2e38620a485da6ef0f82ab5ea8e1c73b5b2b1aac5dc5"
       },
       "install": {
         "steps": [
@@ -181,10 +181,10 @@
       ],
       "repo": "kaisersong/kai-xiaok-plugins",
       "path": "plugins/kai-slide-creator",
-      "version": "3.4.0",
+      "version": "3.5.0",
       "source": {
-        "commit": "0bd269ecbed6959d1d2b056340f10271a52186f1",
-        "treeSha256": "2ace94932a1f6839845045c666b22f75783f860f06c04f7a7cd087442e9c3084"
+        "commit": "d86686dbe6140e6569e6b728fb90ecdb8e2a635b",
+        "treeSha256": "1c2361c70e9efc164447382008bab8a8b0a904db99a531db00863d310a85c494"
       },
       "install": {
         "steps": [

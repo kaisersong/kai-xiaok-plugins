@@ -34,3 +34,9 @@ report 的 forest-editorial 时间线 padding 修复已在适配器中存在。s
 补同步 shader-hero、molten-flow、stellar-vortex 三个 custom theme、shader_hero_renderer、封面运行时和目录、新 demos、用户名称别名及静态导出控制。全部来自正式远程提交，未复制 source docs 或候选。
 
 本地 loader 从实际部署目录读取 plugin.json，不用 registry-v2 校对 legacy 目录版本；直接启动仓库 MCP 已验证。但本地仓库不会自动改变用户部署。managed install 从 v2 固定 SHA checkout 并校验 digest/version，保留旧 v2 意味着仍安装旧 3.4.0/2.5.0。若将新工作树强行配旧 v2 probe，会因版本/digest 不符拒绝。现有 registry 8 项通过只说明旧发布快照一致，不是新工作树已可发布。正式提交/push、重新生成 v2 并 --check 后，仍需新 generation/install 和平台 packaging 验证。
+
+## GitHub 提交与索引绑定
+
+用户随后授权提交 GitHub。正式插件源快照已提交并推送为 `d86686dbe6140e6569e6b728fb90ecdb8e2a635b`；registry-v2 从该不可变 Git 提交生成，绑定 slide 3.5.0 / report 2.5.1。其余插件内容哈希和版本保持不变，源 SHA 由正式生成器统一指向这个已发布到仓库的源快照。索引所在的后续提交与 source.commit 不同是预期行为，检查命令必须显式使用上述 source SHA。
+
+初轮旧 v2 的安装限制已经由新的 commit/version/digest 绑定解决；用户安装和发布资产仍未操作。隔离安装检查与平台打包、用户部署更新是不同验证范围。
