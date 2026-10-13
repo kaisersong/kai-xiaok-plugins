@@ -33,7 +33,7 @@ from preset_support import preset_support_tier, load_preset_support_matrix
 
 mcp = MCPServer(
     name="slide-renderer",
-    version="3.5.0",
+    version="3.6.0",
     instructions="Deterministic HTML rendering from BRIEF.json IR",
 )
 

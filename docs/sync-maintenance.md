@@ -4,10 +4,10 @@
 
 | 源仓库 | 技能版本 | 正式 HEAD | 插件适配版本 |
 | --- | --- | --- | --- |
-| slide-creator | 2.32.0 | 31a6ef1426b0d9764a37432370f20a8526ec7226 | 3.5.0 |
+| slide-creator | 2.34.2 | 7c0b34127d1a510e3cc73a9a27bbe4c9c0b3d3f1 | 3.6.0 |
 | report-creator | 1.28.1 | bee5183ff8be0f5a8fc601d94f2a2a9bcf04d4b4 | 2.5.1 |
 
-两个源仓库没有已跟踪文件修改。源仓库有未跟踪文件，因此 vendor manifest 的 `source_dirty` 如实为 true；本次同步闭包逐项与上述正式 HEAD 的 Git 内容核对，不包含 candidate、私有 docs、eval traces、reports 或密钥。原有未跟踪文件保留。
+slide-creator 源仓库工作树干净（2026-10-12 已将结构化场景 WIP 合并发布为 v2.34.0–v2.34.2），vendor manifest 的 `source_dirty` 为 false；本次同步闭包逐项与上述正式 HEAD 的 Git 内容核对，不包含 candidate、私有 docs、eval traces、reports 或密钥。report-creator 与上次同步一致。原有未跟踪文件保留。
 
 ## 同步机制
 
@@ -32,6 +32,8 @@ report 的 forest-editorial 时间线 padding 修复已在适配器中存在。s
 通过 `git ls-remote --symref origin HEAD` 只读核对：slide 默认 main 为 31a6ef1426b0d9764a37432370f20a8526ec7226（2026-10-09T18:20:10+08:00），包含正式 2.32.0 动效封面/离线播放发布；report 默认 master 为 bee5183ff8be0f5a8fc601d94f2a2a9bcf04d4b4，与本地一致。没有将旧评测基线当成最新远程源。
 
 补同步 shader-hero、molten-flow、stellar-vortex 三个 custom theme、shader_hero_renderer、封面运行时和目录、新 demos、用户名称别名及静态导出控制。全部来自正式远程提交，未复制 source docs 或候选。
+
+2026-10-12/13 两次只读核对：slide-creator 默认 main 最终为 7c0b34127d1a510e3cc73a9a27bbe4c9c0b3d3f1（v2.34.2，含此前本地结构化场景 WIP 合并发布 v2.34.0–v2.34.2 及 flow-relations 修复），工作树干净；据此同步 slide 插件至 3.6.0，闭包含 schemas/references/demos/themes 更新及新增 references/profile-templates/ 目录，vendor manifest `source_dirty` 为 false。registry-v2 仍绑定旧已发布快照 d86686d（3.5.0），本地工作树更新尚未提交。
 
 本地 loader 从实际部署目录读取 plugin.json，不用 registry-v2 校对 legacy 目录版本；直接启动仓库 MCP 已验证。但本地仓库不会自动改变用户部署。managed install 从 v2 固定 SHA checkout 并校验 digest/version，保留旧 v2 意味着仍安装旧 3.4.0/2.5.0。若将新工作树强行配旧 v2 probe，会因版本/digest 不符拒绝。现有 registry 8 项通过只说明旧发布快照一致，不是新工作树已可发布。正式提交/push、重新生成 v2 并 --check 后，仍需新 generation/install 和平台 packaging 验证。
 

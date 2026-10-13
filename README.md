@@ -10,7 +10,7 @@ Versions below come from the current `plugin.json` manifests, checked on **Septe
 
 | Plugin | Version | Purpose | MCP server / runtime |
 |---|---|---|---|
-| [kai-slide-creator](plugins/kai-slide-creator) | 3.4.0 | Structured briefs to HTML presentations, with style presets and validation | slide-renderer / Python |
+| [kai-slide-creator](plugins/kai-slide-creator) | 3.6.0 | Structured briefs to HTML presentations, with style presets and validation | slide-renderer / Python |
 | [kai-report-creator](plugins/kai-report-creator) | 2.4.0 | Structured report IR to HTML, with themes, cover layouts, and KPI quality gates | report-renderer / Node.js |
 | [kai-infinity-canvas](plugins/kai-infinity-canvas) | 0.3.0 | Local tldraw canvas, annotation, image insertion, and PNG/SVG export | canvas-server / Node.js |
 | [kai-meeting-assistant](plugins/kai-meeting-assistant) | 0.2.0 | Local Whisper file transcription fallback and meeting-summary skill | meeting-transcriber / Python |

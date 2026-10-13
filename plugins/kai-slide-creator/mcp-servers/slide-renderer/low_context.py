@@ -15,7 +15,7 @@ from preset_capabilities import (
     get_preset_render_capability,
     resolve_style_reference_path,
 )
-from preset_profile_renderer import build_preset_profile_payload, profile_auto_contrast_script
+from preset_profile_renderer import ProfileTemplateError, build_preset_profile_payload, profile_auto_contrast_script
 from preset_support import preset_support_tier
 from title_profiles import profile_allows_explicit_line_control, resolve_title_profile
 from audience_readability import unique_facts, copy_key, non_repeating_copy, apply_audience_readability
@@ -457,6 +457,156 @@ def _ensure_required_keys(obj: dict[str, Any], path: str, errors: list[str], req
         errors.append(f"{path} missing required fields: {', '.join(missing)}")
 
 
+def _validate_structured_string_list(value: Any, path: str, errors: list[str]) -> None:
+    if not isinstance(value, list) or not value:
+        errors.append(f"{path} must be a non-empty array")
+        return
+    for index, item in enumerate(value, start=1):
+        _ensure_string(item, f"{path}[{index}]", errors)
+
+
+def _validate_structured_entity(
+    value: Any,
+    path: str,
+    errors: list[str],
+    *,
+    allow_nodes: bool,
+) -> None:
+    if not isinstance(value, dict):
+        errors.append(f"{path} must be an object")
+        return
+    required = {"id"}
+    optional = {"badge", "label", "description", "items", "tags", "source_refs"}
+    if allow_nodes:
+        optional.add("nodes")
+    _ensure_required_keys(value, path, errors, required)
+    _ensure_no_extra_keys(value, path, errors, required | optional)
+    for key in ("id", "badge", "label", "description"):
+        if key in value:
+            _ensure_string(value[key], f"{path}.{key}", errors)
+    for key in ("items", "tags", "source_refs"):
+        if key in value:
+            _validate_structured_string_list(value[key], f"{path}.{key}", errors)
+    if allow_nodes and "nodes" in value:
+        nodes = value["nodes"]
+        if not isinstance(nodes, list) or not nodes:
+            errors.append(f"{path}.nodes must be a non-empty array")
+        else:
+            for index, node in enumerate(nodes, start=1):
+                _validate_structured_entity(node, f"{path}.nodes[{index}]", errors, allow_nodes=False)
+
+
+def _validate_structured_content(value: Any, path: str, errors: list[str]) -> None:
+    if not isinstance(value, dict):
+        errors.append(f"{path} must be an object")
+        return
+    kind = str(value.get("kind") or "")
+    generic_kinds = {"card-sequence", "card-grid", "paired-panels", "parallel-flows"}
+    required = {"kind"} if kind == "title-only" or kind in generic_kinds else {"kind", "groups"}
+    optional = {
+        "badge",
+        "title",
+        "description",
+        "direction",
+        "items",
+        "groups",
+        "nodes",
+        "edges",
+        "rails",
+        "bands",
+    }
+    _ensure_required_keys(value, path, errors, required)
+    _ensure_no_extra_keys(value, path, errors, required | optional)
+    if "kind" in value:
+        _ensure_enum(
+            value["kind"],
+            f"{path}.kind",
+            errors,
+            {
+                "personal-profile",
+                "title-only",
+                "challenge-flow",
+                "milestone-timeline",
+                "three-column-conclusion",
+                "capability-bridge",
+                "context-package",
+                "takeaway-stack",
+                "interaction-flow-poll",
+                "layered-architecture",
+                "layered-call-graph",
+                "card-sequence",
+                "card-grid",
+                "paired-panels",
+                "parallel-flows",
+            },
+        )
+    for key in ("badge", "title", "description"):
+        if key in value:
+            _ensure_string(value[key], f"{path}.{key}", errors)
+    if "items" in value:
+        _validate_structured_string_list(value["items"], f"{path}.items", errors)
+    if "direction" in value:
+        _ensure_enum(value["direction"], f"{path}.direction", errors, {"top-to-bottom", "left-to-right"})
+    identifiers: set[str] = set()
+    if "nodes" in value:
+        nodes = value["nodes"]
+        if not isinstance(nodes, list) or not nodes:
+            errors.append(f"{path}.nodes must be a non-empty array")
+        else:
+            for index, node in enumerate(nodes, start=1):
+                node_path = f"{path}.nodes[{index}]"
+                _validate_structured_entity(node, node_path, errors, allow_nodes=False)
+                if not isinstance(node, dict):
+                    continue
+                identifier = str(node.get("id") or "").strip()
+                if identifier in identifiers:
+                    errors.append(f"{node_path} reuses structured id: {identifier}")
+                elif identifier:
+                    identifiers.add(identifier)
+    for key in ("groups", "rails", "bands"):
+        if key not in value:
+            continue
+        entities = value[key]
+        if not isinstance(entities, list) or not entities:
+            errors.append(f"{path}.{key} must be a non-empty array")
+            continue
+        for index, entity in enumerate(entities, start=1):
+            entity_path = f"{path}.{key}[{index}]"
+            _validate_structured_entity(entity, entity_path, errors, allow_nodes=True)
+            if not isinstance(entity, dict):
+                continue
+            candidates = [str(entity.get("id") or "").strip()]
+            nodes = entity.get("nodes") if isinstance(entity.get("nodes"), list) else []
+            candidates.extend(str(node.get("id") or "").strip() for node in nodes if isinstance(node, dict))
+            for identifier in (candidate for candidate in candidates if candidate):
+                if identifier in identifiers:
+                    errors.append(f"{entity_path} reuses structured id: {identifier}")
+                identifiers.add(identifier)
+    if "edges" in value:
+        edges = value["edges"]
+        if not isinstance(edges, list) or not edges:
+            errors.append(f"{path}.edges must be a non-empty array")
+        else:
+            for index, edge in enumerate(edges, start=1):
+                edge_path = f"{path}.edges[{index}]"
+                if not isinstance(edge, dict):
+                    errors.append(f"{edge_path} must be an object")
+                    continue
+                edge_required = {"from", "to", "relation"}
+                edge_optional = {"label", "source_refs"}
+                _ensure_required_keys(edge, edge_path, errors, edge_required)
+                _ensure_no_extra_keys(edge, edge_path, errors, edge_required | edge_optional)
+                for key in ("from", "to", "relation", "label"):
+                    if key in edge:
+                        _ensure_string(edge[key], f"{edge_path}.{key}", errors)
+                for endpoint in ("from", "to"):
+                    endpoint_id = str(edge.get(endpoint) or "").strip()
+                    if endpoint_id and endpoint_id not in identifiers:
+                        errors.append(f"{edge_path}.{endpoint} references unknown structured id: {endpoint_id}")
+                if "source_refs" in edge:
+                    _validate_structured_string_list(edge["source_refs"], f"{edge_path}.source_refs", errors)
+
+
 def _validate_timing_block(block: Any, path: str, errors: list[str]) -> None:
     if not isinstance(block, dict):
         errors.append(f"{path} must be an object")
@@ -519,7 +669,7 @@ def validate_brief_data(brief: Any) -> list[str]:
         if "deck_type" in deck:
             _ensure_enum(deck["deck_type"], "brief.deck.deck_type", errors, {"product-demo", "user-content"})
         if "page_count" in deck:
-            _ensure_integer(deck["page_count"], "brief.deck.page_count", errors, minimum=5, maximum=20)
+            _ensure_integer(deck["page_count"], "brief.deck.page_count", errors, minimum=5, maximum=40)
         if deck.get("output_format") != "html-slides":
             errors.append("brief.deck.output_format must equal html-slides")
 
@@ -589,6 +739,7 @@ def validate_brief_data(brief: Any) -> list[str]:
                 "chart_policy",
                 "supporting_facts",
                 "numeric_facts",
+                "structured_content",
             }
             for index, slide in enumerate(slides, start=1):
                 path = f"brief.narrative.slides[{index}]"
@@ -618,6 +769,8 @@ def validate_brief_data(brief: Any) -> list[str]:
                         continue
                     for fact_index, item in enumerate(value, start=1):
                         _ensure_string(item, f"{path}.{key}[{fact_index}]", errors)
+                if "structured_content" in slide:
+                    _validate_structured_content(slide["structured_content"], f"{path}.structured_content", errors)
 
     runtime = brief.get("runtime")
     if not isinstance(runtime, dict):
@@ -1759,6 +1912,8 @@ def _preferred_layout_from_family(
 ) -> str | None:
     if not family:
         return None
+    if family == "bento" and "bento" in allowed_layouts:
+        return "bento"
     family_map = usage_rules.get("layout_family_map", {})
     layout_id = family_map.get(str(family).strip().lower())
     if layout_id in allowed_layouts:
@@ -2377,6 +2532,9 @@ def build_slide_spec(brief: dict[str, Any], packet: dict[str, Any] | None = None
         preferred = [layout for layout in ("title_grid", "column_content", "contents_index", "pull_quote") if layout in allowed_layouts]
         layout_cycle = preferred or (allowed_layouts[:3] or layout_cycle)
 
+    if packet["canonical_preset"] == "Fantasy Rainbow" and "bento" in allowed_layouts and "bento" not in layout_cycle:
+        layout_cycle = [*layout_cycle, "bento"]
+
     specs: list[dict[str, Any]] = []
     previous_layouts: list[str] = []
     previous_rhythm_families: list[str] = []
@@ -2392,6 +2550,7 @@ def build_slide_spec(brief: dict[str, Any], packet: dict[str, Any] | None = None
         chart_policy = str(slide.get("chart_policy") or "auto").strip().lower()
         supporting_facts = _slide_supporting_facts(slide)
         numeric_facts = _slide_numeric_facts(slide)
+        structured_content = slide.get("structured_content")
 
         preferred_layout = _preferred_layout_from_family(preferred_layout_family, usage_rules, layout_cycle)
         if normalized_preset == "data story" and role == "solution":
@@ -2453,6 +2612,7 @@ def build_slide_spec(brief: dict[str, Any], packet: dict[str, Any] | None = None
             "evidence_items": evidence,
             "supporting_facts": supporting_facts,
             "numeric_facts": numeric_facts,
+            "structured_content": structured_content,
             "speaker_note": _sanitize_pictorial_text(slide.get("speaker_note") or f"{role}: {explanation}"),
             "visual": visual_intent,
             "visual_intent": visual_intent,
@@ -7442,7 +7602,9 @@ def _blue_sky_watermark_script(*, preset: str, version: str) -> str:
 
 def _blue_sky_title_tag(tag: str, text: str, *, layout_id: str, extra_attrs: str = "") -> str:
     normalized = _normalize_title_text(text)
-    nowrap_limit = 18.5 if tag.lower() == "h1" else 22.5
+    # Content headers can sit in an 820px workflow column. Leave room for
+    # wider CJK fallback fonts instead of forcing a borderline title to overflow.
+    nowrap_limit = 18.5 if tag.lower() == "h1" else (20.0 if layout_id == "workflow" else 22.5)
     if _title_visual_units(normalized) <= nowrap_limit:
         attrs = 'class="gt reveal title-nowrap"'
         if extra_attrs:
@@ -8132,13 +8294,16 @@ def render_unified_profile_html(
 ) -> str:
     capability = get_preset_render_capability(brief["style"]["preset"])
     specs = build_slide_spec(brief, packet)
-    payload = build_preset_profile_payload(
-        brief=brief,
-        packet=packet,
-        style_contract=style_contract,
-        capability=capability,
-        specs=specs,
-    )
+    try:
+        payload = build_preset_profile_payload(
+            brief=brief,
+            packet=packet,
+            style_contract=style_contract,
+            capability=capability,
+            specs=specs,
+        )
+    except ProfileTemplateError as exc:
+        raise RenderError(str(exc)) from exc
     packet["body_classes"] = list(payload.body_classes)
     packet["body_data_attrs"] = payload.body_data_attrs
     packet["style_family"] = payload.style_signature["family"]
@@ -8245,7 +8410,39 @@ def _iridescence_split_item(item: str) -> tuple[str, str]:
     return text, ""
 
 
+def _iridescence_split_middle_dot(item: str, *, label_parts: int = 1) -> tuple[str, str]:
+    text = str(item).strip()
+    parts = [part.strip() for part in text.split(" · ", label_parts)]
+    if len(parts) == label_parts + 1 and all(parts):
+        return f'{" · ".join(parts[:-1])} ·', parts[-1]
+    return _iridescence_split_item(text)
+
+
+def _iridescence_split_columns(item: str, *, count: int = 3) -> list[str]:
+    """Split a structured row while preserving empty trailing columns."""
+    text = str(item).strip()
+    for separator in ("｜", "|"):
+        if separator in text:
+            columns = [part.strip() for part in text.split(separator, count - 1)]
+            return (columns + [""] * count)[:count]
+    middle_dot_columns = [part.strip() for part in text.split(" · ", count - 1)]
+    if len(middle_dot_columns) == count and all(middle_dot_columns):
+        return [
+            *[f"{part} ·" for part in middle_dot_columns[:-1]],
+            middle_dot_columns[-1],
+        ]
+    label, description = _iridescence_split_item(text)
+    return [label, description, *([""] * max(0, count - 2))][:count]
+
+
 def _iridescence_title_lines(title: str) -> list[str]:
+    explicit_lines = [
+        _normalize_title_text(line)
+        for line in re.split(r"\r?\n", title)
+        if _normalize_title_text(line)
+    ]
+    if 1 < len(explicit_lines) <= 3:
+        return explicit_lines
     normalized = _normalize_title_text(title)
     if not normalized:
         return []
@@ -8254,7 +8451,12 @@ def _iridescence_title_lines(title: str) -> list[str]:
         cleaned = chunk.strip().rstrip("｜|").rstrip()
         if cleaned:
             semantic_chunks.append(cleaned)
-    if 1 < len(semantic_chunks) <= 3 and all(_title_visual_units(chunk) <= 18 for chunk in semantic_chunks):
+    if (
+        1 < len(semantic_chunks) <= 3
+        and all(_title_visual_units(chunk) <= 18 for chunk in semantic_chunks)
+        and min(_title_visual_units(chunk) for chunk in semantic_chunks)
+        >= max(_title_visual_units(chunk) for chunk in semantic_chunks) * 0.38
+    ):
         return semantic_chunks
     return _balance_title_lines(normalized, max_lines=3, force_balance=True) or [normalized]
 
@@ -8288,7 +8490,68 @@ def _render_iridescence_theme_slide(spec: dict[str, Any], total: int, *, role_in
     layout_id = spec["layout_id"]
     layout_class = re.sub(r"[^a-zA-Z0-9_-]+", "-", str(layout_id)).strip("-") or "default"
     layout_class = f"layout-{layout_class}"
-    items = _iridescence_display_items(spec)
+    structured_content = spec.get("structured_content") if isinstance(spec.get("structured_content"), dict) else {}
+    structured_kind = str(structured_content.get("kind") or "")
+    structured_scenes = {
+        "personal-profile": "personal-profile",
+        "title-only": "title-only",
+        "challenge-flow": "challenge-flow",
+        "milestone-timeline": "milestone-timeline",
+        "three-column-conclusion": "three-column-conclusion",
+        "capability-bridge": "capability-bridge",
+        "context-package": "context-package",
+        "takeaway-stack": "takeaway-stack",
+        "interaction-flow-poll": "interaction-flow-poll",
+        "layered-architecture": "layered-architecture",
+        "layered-call-graph": "layered-call-graph",
+        "card-sequence": "card-sequence",
+        "card-grid": "card-grid",
+        "paired-panels": "paired-panels",
+        "parallel-flows": "parallel-flows",
+    }
+    structured_roles = {
+        "architecture-stack": "architecture-stack",
+        "enterprise-context": "context-matrix",
+        "call-chain": "call-chain",
+        "process": "pipeline",
+        "compiler-process": "contract",
+        "permission-policy": "gates",
+        "recovery-loop": "pipeline",
+        "guardrails": "gates",
+        "interaction-case": "pipeline",
+        "evolution": "pipeline",
+        "comparison": "modes",
+        "formula": "modes",
+        "debate": "modes",
+        "dual-mode": "dual-mode",
+        "routing-comparison": "dual-mode",
+        "workshop": "workshop-grid",
+        "workshop-reveal": "workshop-grid",
+        "capability-landscape": "capability-landscape",
+        "enterprise-comparison": "comparison-table",
+    }
+    role_item_limits = {
+        "architecture-stack": 8,
+        "enterprise-context": 16,
+        "call-chain": 5,
+        "process": 6,
+        "compiler-process": 5,
+        "permission-policy": 4,
+        "recovery-loop": 6,
+        "guardrails": 4,
+        "interaction-case": 6,
+        "evolution": 6,
+        "comparison": 2,
+        "formula": 2,
+        "debate": 2,
+        "dual-mode": 2,
+        "routing-comparison": 2,
+        "workshop": 12,
+        "workshop-reveal": 12,
+        "capability-landscape": 8,
+        "enterprise-comparison": 8,
+    }
+    items = _iridescence_display_items(spec, limit=role_item_limits.get(role, 6))
     notes = _escape(spec["speaker_note"])
     scene_order = (
         "hero",
@@ -8305,10 +8568,16 @@ def _render_iridescence_theme_slide(spec: dict[str, Any], total: int, *, role_in
         "closing",
     )
     closing_roles = {"cta", "closing", "cta_close", "getting-started"}
-    if role_index == 0 or role in {"cover", "title"}:
+    if structured_kind in structured_scenes:
+        scene = structured_scenes[structured_kind]
+    elif role_index == 0 or role in {"cover", "title"}:
         scene = "hero"
     elif role in closing_roles:
         scene = "closing"
+    elif layout_id == "bento":
+        scene = "bento"
+    elif role in structured_roles:
+        scene = structured_roles[role]
     else:
         # Cycle through the middle scenes so decks longer than the scene list
         # keep alternating compositions instead of repeating the last one.
@@ -8334,6 +8603,123 @@ def _render_iridescence_theme_slide(spec: dict[str, Any], total: int, *, role_in
         "iri-accent-text-tertiary",
     )
 
+    def source_attrs(entity: dict[str, Any]) -> str:
+        refs = entity.get("source_refs") if isinstance(entity, dict) else None
+        if not isinstance(refs, list):
+            return ""
+        value = " ".join(str(ref).strip() for ref in refs if str(ref).strip())
+        return f' data-source-ref="{_escape(value)}"' if value else ""
+
+    def entity_attrs(entity: dict[str, Any], *, kind: str) -> str:
+        entity_id = str(entity.get("id") or "").strip()
+        attr_name = "data-node-id" if kind == "node" else "data-group-id"
+        identifier = f' {attr_name}="{_escape(entity_id)}"' if entity_id else ""
+        return f"{identifier}{source_attrs(entity)}"
+
+    def structured_node(node: dict[str, Any], class_name: str) -> str:
+        badge = str(node.get("badge") or "").strip()
+        label = _escape(str(node.get("label") or ""))
+        description = str(node.get("description") or "").strip()
+        tags = node.get("tags") if isinstance(node.get("tags"), list) else []
+        values = node.get("items") if isinstance(node.get("items"), list) else []
+        tags_html = "".join(f'<span class="iri-structured-tag">{_escape(str(tag))}</span>' for tag in tags)
+        items_html = "".join(f'<span class="iri-structured-item">{_escape(str(item))}</span>' for item in values)
+        return (
+            f'<div class="{class_name} kd-reveal"{entity_attrs(node, kind="node")}>'
+            + (f'<span class="iri-structured-badge">{_escape(badge)}</span>' if badge else "")
+            + f'<strong>{label}</strong>'
+            + (f'<p>{_escape(description)}</p>' if description else "")
+            + (f'<div class="iri-structured-tags">{tags_html}</div>' if tags_html else "")
+            + (f'<div class="iri-structured-items">{items_html}</div>' if items_html else "")
+            + '</div>'
+        )
+
+    def edge_markup(edge: dict[str, Any], class_name: str) -> str:
+        label = str(edge.get("label") or "").strip() or "→"
+        label_class = " has-edge-label" if label not in {"→", "↓", "←", "↑"} else ""
+        geometry_attr = (
+            ' data-geometry-target="flow-edge"'
+            if class_name in {"iri-interaction-edge", "iri-process-edge", "iri-timeline-edge"}
+            else ""
+        )
+        return (
+            f'<div class="{class_name}{label_class}"{geometry_attr} data-edge-from="{_escape(str(edge.get("from") or ""))}" '
+            f'data-edge-to="{_escape(str(edge.get("to") or ""))}" '
+            f'data-relation="{_escape(str(edge.get("relation") or ""))}"{source_attrs(edge)}>'
+            f'{_escape(label)}</div>'
+        )
+
+    def edge_overlay(edge_data: list[dict[str, Any]], class_name: str) -> str:
+        if not edge_data:
+            return ""
+        marker_id = f"iri-arrow-{slide_number}-{class_name}"
+        paths = "".join(
+            f'<path class="iri-edge-path" d="M 0 0 C 0 0 0 0 0 0" '
+            f'marker-end="url(#{_escape(marker_id)})" vector-effect="non-scaling-stroke" '
+            f'data-edge-from="{_escape(str(edge.get("from") or ""))}" '
+            f'data-edge-to="{_escape(str(edge.get("to") or ""))}" '
+            f'data-relation="{_escape(str(edge.get("relation") or ""))}"{source_attrs(edge)}></path>'
+            for edge in edge_data
+        )
+        return (
+            f'<svg class="iri-edge-overlay {class_name}" role="img" aria-label="Directed relationships" preserveAspectRatio="none">'
+            f'<defs><marker id="{_escape(marker_id)}" viewBox="0 0 8 8" refX="7" refY="4" '
+            'markerWidth="5" markerHeight="5" orient="auto-start-reverse">'
+            '<path d="M 0 0 L 8 4 L 0 8 z"></path></marker></defs>'
+            f'{paths}</svg>'
+        )
+
+    def structured_band(group: dict[str, Any], class_name: str) -> str:
+        values = group.get("items") if isinstance(group.get("items"), list) else []
+        nodes = group.get("nodes") if isinstance(group.get("nodes"), list) else []
+        values_html = "".join(f'<span>{_escape(str(item))}</span>' for item in values)
+        nodes_html = "".join(structured_node(node, f"{class_name}-node") for node in nodes)
+        return (
+            f'<div class="{class_name} kd-reveal"{entity_attrs(group, kind="group")}>'
+            f'<strong>{_escape(str(group.get("label") or ""))}</strong>'
+            + (f'<p>{_escape(str(group.get("description") or ""))}</p>' if group.get("description") else "")
+            + (f'<div class="{class_name}-items">{values_html}</div>' if values_html else "")
+            + nodes_html
+            + '</div>'
+        )
+
+    def generic_group(group: dict[str, Any], class_name: str) -> str:
+        values = group.get("items") if isinstance(group.get("items"), list) else []
+        nodes = group.get("nodes") if isinstance(group.get("nodes"), list) else []
+        values_html = "".join(f'<span class="iri-generic-item">{_escape(str(item))}</span>' for item in values)
+        nodes_html = "".join(structured_node(node, "iri-generic-card") for node in nodes)
+        node_count = f' data-node-count="{len(nodes)}"' if nodes else ""
+        return (
+            f'<div class="{class_name} kd-reveal"{node_count}{entity_attrs(group, kind="group")}>'
+            + (f'<h3>{_escape(str(group.get("label") or ""))}</h3>' if group.get("label") else "")
+            + (f'<p>{_escape(str(group.get("description") or ""))}</p>' if group.get("description") else "")
+            + (f'<div class="iri-generic-items">{values_html}</div>' if values_html else "")
+            + (f'<div class="iri-generic-nodes">{nodes_html}</div>' if nodes_html else "")
+            + '</div>'
+        )
+
+    def generic_header() -> str:
+        badge = str(structured_content.get("badge") or "").strip()
+        title = str(structured_content.get("title") or spec.get("title") or "").strip()
+        description = str(structured_content.get("description") or "").strip()
+        return (
+            '<div class="iri-copy iri-generic-header">'
+            + (f'<span class="iri-structured-badge">{_escape(badge)}</span>' if badge else "")
+            + f'<h2 class="iri-headline kd-reveal">{title_markup(title)}</h2>'
+            + (f'<p class="iri-lead kd-reveal">{_escape(description)}</p>' if description else "")
+            + '</div>'
+        )
+
+    def generic_root_content() -> str:
+        root_items = structured_content.get("items") if isinstance(structured_content.get("items"), list) else []
+        root_nodes = structured_content.get("nodes") if isinstance(structured_content.get("nodes"), list) else []
+        items_html = "".join(f'<span class="iri-generic-item">{_escape(str(item))}</span>' for item in root_items)
+        nodes_html = "".join(structured_node(node, "iri-generic-card") for node in root_nodes)
+        return (
+            (f'<div class="iri-generic-items iri-generic-root-items">{items_html}</div>' if items_html else "")
+            + (f'<div class="iri-generic-nodes iri-generic-root-nodes">{nodes_html}</div>' if nodes_html else "")
+        )
+
     def emphasized_line(line: str, phrase: str | None) -> str:
         if not phrase or phrase not in line:
             return _escape(line)
@@ -8344,15 +8730,15 @@ def _render_iridescence_theme_slide(spec: dict[str, Any], total: int, *, role_in
             f"{_escape(after)}"
         )
 
-    def title_markup() -> str:
-        title = str(spec["title"])
+    def title_markup(title_override: str | None = None) -> str:
+        title = str(spec["title"]) if title_override is None else title_override
         lines = _iridescence_title_lines(title)
         phrase = str(spec.get("title_emphasis") or "").strip()
         if scene not in {"hero", "closing"}:
             phrase = ""
         elif not phrase or phrase not in title:
             phrase = _iridescence_fallback_title_emphasis(title, lines)
-        return "".join(f'<span class="iri-title-line">{emphasized_line(line, phrase)}</span>' for line in lines)
+        return "".join(f'<span class="iri-title-line title-line">{emphasized_line(line, phrase)}</span>' for line in lines)
 
     def header(*, level: int = 2, lead: bool = True) -> str:
         tag = "h1" if level == 1 else "h2"
@@ -8379,12 +8765,17 @@ def _render_iridescence_theme_slide(spec: dict[str, Any], total: int, *, role_in
         )
 
     if scene == "hero":
+        hero_facts = (
+            f'<div class="iri-facts">{facts(items[:4], accented=False)}</div>'
+            if items
+            else ""
+        )
         body = (
             '<div class="iri-copy">'
             f'<span class="iri-label">{slide_number:02d} / {total:02d} · {_escape(role.upper())}</span>'
             f'<h1 class="iri-headline kd-reveal">{title_markup()}</h1>'
             f'<p class="iri-lead kd-reveal">{_escape(spec.get("key_point", ""))}</p>'
-            f'<div class="iri-facts">{facts(items[:4], accented=False)}</div>'
+            f'{hero_facts}'
             '</div>'
         )
     elif scene == "fracture":
@@ -8442,6 +8833,18 @@ def _render_iridescence_theme_slide(spec: dict[str, Any], total: int, *, role_in
             for index, item in enumerate(items[:6], start=1)
         )
         body = f'{header()}<div class="iri-pipeline">{steps}</div>'
+    elif scene == "bento":
+        cards = []
+        for index, item in enumerate(items, start=1):
+            label, description = _iridescence_split_item(item)
+            cards.append(
+                '<div class="iri-bento-card kd-reveal">'
+                f'<span class="iri-number {accent_cycle[(index - 1) % len(accent_cycle)]}">{index:02d}</span>'
+                f'<h3>{_escape(label)}</h3>'
+                + (f'<p>{_escape(description)}</p>' if description else "")
+                + '</div>'
+            )
+        body = f'{header()}<div class="iri-bento iri-bento--{len(cards)}">{"".join(cards)}</div>'
     elif scene == "spectrum":
         marker_cycle = (
             "iri-marker-primary",
@@ -8530,6 +8933,493 @@ def _render_iridescence_theme_slide(spec: dict[str, Any], total: int, *, role_in
             for index, item in enumerate(items[:4], start=1)
         )
         body = f'{header()}<div class="iri-quadrants">{quadrants}</div>'
+    elif scene in {"card-sequence", "card-grid", "paired-panels", "parallel-flows"}:
+        groups = structured_content.get("groups") if isinstance(structured_content.get("groups"), list) else []
+        edges = structured_content.get("edges") if isinstance(structured_content.get("edges"), list) else []
+        bands = structured_content.get("bands") if isinstance(structured_content.get("bands"), list) else []
+        group_class = {
+            "card-sequence": "iri-card-sequence-group",
+            "card-grid": "iri-card-grid-group",
+            "paired-panels": "iri-paired-panel",
+            "parallel-flows": "iri-parallel-flow",
+        }[scene]
+        groups_html = "".join(generic_group(group, group_class) for group in groups)
+        bands_html = "".join(structured_band(band, "iri-generic-band") for band in bands)
+        edges_html = "".join(edge_markup(edge, "iri-generic-edge") for edge in edges)
+        direction = str(structured_content.get("direction") or "").strip()
+        direction_attr = f' data-direction="{_escape(direction)}"' if direction else ""
+        body = (
+            f'{generic_header()}'
+            f'<div class="iri-generic-structured iri-{scene}"{direction_attr}>'
+            f'{generic_root_content()}'
+            f'<div class="iri-generic-groups">{groups_html}</div>'
+            f'<div class="iri-generic-edges">{edges_html}</div>'
+            f'{edge_overlay(edges, "iri-generic-edge-overlay")}'
+            f'<div class="iri-generic-bands">{bands_html}</div>'
+            '</div>'
+        )
+    elif scene == "personal-profile":
+        groups = structured_content.get("groups") if isinstance(structured_content.get("groups"), list) else []
+        identity = groups[0] if groups else {}
+        credentials = groups[1] if len(groups) > 1 else {}
+        identity_items = "".join(
+            f'<span>{_escape(str(item))}</span>'
+            for item in (identity.get("items") if isinstance(identity.get("items"), list) else [])
+        )
+        identity_tags = "".join(
+            f'<span>{_escape(str(tag))}</span>'
+            for tag in (identity.get("tags") if isinstance(identity.get("tags"), list) else [])
+        )
+        profile_facts = "".join(
+            structured_node(node, "iri-profile-fact")
+            for node in (credentials.get("nodes") if isinstance(credentials.get("nodes"), list) else [])
+        )
+        body = (
+            f'{header(lead=False)}'
+            '<div class="iri-profile-layout">'
+            f'<div class="iri-profile-identity kd-reveal"{entity_attrs(identity, kind="group")}>'
+            f'<strong>{_escape(str(identity.get("label") or ""))}</strong>'
+            + (f'<p>{_escape(str(identity.get("description") or ""))}</p>' if identity.get("description") else "")
+            + (f'<div class="iri-profile-items">{identity_items}</div>' if identity_items else "")
+            + (f'<div class="iri-profile-tags">{identity_tags}</div>' if identity_tags else "")
+            + '</div>'
+            f'<div class="iri-profile-facts"{entity_attrs(credentials, kind="group")}>{profile_facts}</div>'
+            '</div>'
+        )
+    elif scene == "title-only":
+        body = f'<div class="iri-title-only">{header(level=1, lead=False)}</div>'
+    elif scene == "challenge-flow":
+        groups = structured_content.get("groups") if isinstance(structured_content.get("groups"), list) else []
+        challenge_group = groups[0] if groups else {}
+        flow_group = groups[1] if len(groups) > 1 else {}
+        challenge_nodes = challenge_group.get("nodes") if isinstance(challenge_group.get("nodes"), list) else []
+        flow_nodes = flow_group.get("nodes") if isinstance(flow_group.get("nodes"), list) else []
+        edges = structured_content.get("edges") if isinstance(structured_content.get("edges"), list) else []
+        challenge_bars = "".join(structured_node(node, "iri-challenge-bar") for node in challenge_nodes)
+        flow_parts = []
+        for index, node in enumerate(flow_nodes):
+            flow_parts.append(structured_node(node, "iri-process-node"))
+            if index >= len(flow_nodes) - 1:
+                continue
+            from_id = str(node.get("id") or "")
+            to_id = str(flow_nodes[index + 1].get("id") or "")
+            edge = next(
+                (
+                    item
+                    for item in edges
+                    if str(item.get("from") or "") == from_id and str(item.get("to") or "") == to_id
+                ),
+                {"from": from_id, "to": to_id, "relation": "ordered-before", "label": "→"},
+            )
+            flow_parts.append(edge_markup(edge, "iri-process-edge"))
+        body = (
+            f'{header()}<div class="iri-challenge-flow">'
+            f'<div class="iri-challenge-list"{entity_attrs(challenge_group, kind="group")}>'
+            + (f'<h3>{_escape(str(challenge_group.get("label") or ""))}</h3>' if challenge_group.get("label") else "")
+            + f'{challenge_bars}</div>'
+            f'<div class="iri-process-strip"{entity_attrs(flow_group, kind="group")}>'
+            f'<div class="iri-process-copy"><h3>{_escape(str(flow_group.get("label") or ""))}</h3>'
+            + (f'<p>{_escape(str(flow_group.get("description") or ""))}</p>' if flow_group.get("description") else "")
+            + '</div>'
+            f'<div class="iri-process-sequence">{"".join(flow_parts)}</div>'
+            '</div></div>'
+        )
+    elif scene == "milestone-timeline":
+        groups = structured_content.get("groups") if isinstance(structured_content.get("groups"), list) else []
+        timeline_group = groups[0] if groups else {}
+        milestones = timeline_group.get("nodes") if isinstance(timeline_group.get("nodes"), list) else []
+        edges = structured_content.get("edges") if isinstance(structured_content.get("edges"), list) else []
+        timeline_parts = []
+        for index, node in enumerate(milestones):
+            timeline_parts.append(structured_node(node, "iri-timeline-milestone"))
+            if index >= len(milestones) - 1:
+                continue
+            from_id = str(node.get("id") or "")
+            to_id = str(milestones[index + 1].get("id") or "")
+            edge = next(
+                (
+                    item
+                    for item in edges
+                    if str(item.get("from") or "") == from_id and str(item.get("to") or "") == to_id
+                ),
+                {"from": from_id, "to": to_id, "relation": "ordered-before", "label": "→"},
+            )
+            timeline_parts.append(edge_markup(edge, "iri-timeline-edge"))
+        body = (
+            f'{header()}<div class="iri-milestone-timeline"{entity_attrs(timeline_group, kind="group")}>'
+            + (f'<h3>{_escape(str(timeline_group.get("label") or ""))}</h3>' if timeline_group.get("label") else "")
+            + f'<div class="iri-timeline-sequence">{"".join(timeline_parts)}</div>'
+            '</div>'
+        )
+    elif scene == "three-column-conclusion":
+        groups = structured_content.get("groups") if isinstance(structured_content.get("groups"), list) else []
+        bands = structured_content.get("bands") if isinstance(structured_content.get("bands"), list) else []
+        problem_group = groups[0] if groups else {}
+        problem_nodes = problem_group.get("nodes") if isinstance(problem_group.get("nodes"), list) else []
+        problem_cards = "".join(structured_node(node, "iri-problem-column") for node in problem_nodes)
+        bands_html = "".join(structured_band(band, "iri-conclusion-band") for band in bands)
+        body = (
+            f'{header()}<div class="iri-three-column-conclusion"{entity_attrs(problem_group, kind="group")}>'
+            '<div class="iri-problem-frame">'
+            + (f'<p>{_escape(str(problem_group.get("label") or ""))}</p>' if problem_group.get("label") else "")
+            + (f'<strong>{_escape(str(problem_group.get("description") or ""))}</strong>' if problem_group.get("description") else "")
+            + f'</div><div class="iri-problem-columns">{problem_cards}</div>'
+            f'<div class="iri-conclusion-bands">{bands_html}</div></div>'
+        )
+    elif scene == "capability-bridge":
+        groups = structured_content.get("groups") if isinstance(structured_content.get("groups"), list) else []
+        bands = structured_content.get("bands") if isinstance(structured_content.get("bands"), list) else []
+        capability_group = groups[0] if groups else {}
+        capability_nodes = capability_group.get("nodes") if isinstance(capability_group.get("nodes"), list) else []
+        capability_columns = "".join(structured_node(node, "iri-bridge-column") for node in capability_nodes)
+        bands_html = "".join(structured_band(band, "iri-bridge-band") for band in bands)
+        body = (
+            f'{header()}<div class="iri-capability-bridge"{entity_attrs(capability_group, kind="group")}>'
+            f'<div class="iri-bridge-columns">{capability_columns}</div>{bands_html}</div>'
+        )
+    elif scene == "context-package":
+        groups = structured_content.get("groups") if isinstance(structured_content.get("groups"), list) else []
+        bands = structured_content.get("bands") if isinstance(structured_content.get("bands"), list) else []
+        package_group = groups[0] if groups else {}
+        component_group = groups[1] if len(groups) > 1 else {}
+        component_nodes = component_group.get("nodes") if isinstance(component_group.get("nodes"), list) else []
+        package_html = structured_band(package_group, "iri-context-package-head")
+        component_html = "".join(structured_node(node, "iri-context-package-card") for node in component_nodes)
+        footer_html = "".join(structured_band(band, "iri-context-package-band") for band in bands)
+        body = (
+            f'{header()}<div class="iri-context-package">{package_html}'
+            f'<div class="iri-context-package-grid"{entity_attrs(component_group, kind="group")}>{component_html}</div>'
+            f'{footer_html}</div>'
+        )
+    elif scene == "takeaway-stack":
+        groups = structured_content.get("groups") if isinstance(structured_content.get("groups"), list) else []
+        bands = structured_content.get("bands") if isinstance(structured_content.get("bands"), list) else []
+        principle_group = groups[0] if groups else {}
+        principle_nodes = principle_group.get("nodes") if isinstance(principle_group.get("nodes"), list) else []
+        principle_label = str(principle_group.get("label") or "").strip()
+        principles_html = "".join(structured_node(node, "iri-takeaway-principle") for node in principle_nodes)
+        bands_html = "".join(structured_band(band, "iri-takeaway-band") for band in bands)
+        body = (
+            f'{header()}<div class="iri-takeaway-stack"{entity_attrs(principle_group, kind="group")}>'
+            + (f'<p class="iri-takeaway-frame">{_escape(principle_label)}</p>' if principle_label else "")
+            + f'<div class="iri-takeaway-principles">{principles_html}</div>'
+            f'<div class="iri-takeaway-bands">{bands_html}</div></div>'
+        )
+    elif scene == "interaction-flow-poll":
+        groups = structured_content.get("groups") if isinstance(structured_content.get("groups"), list) else []
+        flow_group = groups[0] if groups else {}
+        poll_group = groups[1] if len(groups) > 1 else {}
+        flow_nodes = flow_group.get("nodes") if isinstance(flow_group.get("nodes"), list) else []
+        poll_nodes = poll_group.get("nodes") if isinstance(poll_group.get("nodes"), list) else []
+        flow_intro = "".join(
+            f'<span class="iri-structured-item">{_escape(str(item))}</span>'
+            for item in (flow_group.get("items") if isinstance(flow_group.get("items"), list) else [])
+        )
+        flow_edge_data = structured_content.get("edges") if isinstance(structured_content.get("edges"), list) else []
+        flow_sequence_parts = []
+        for index, node in enumerate(flow_nodes):
+            flow_sequence_parts.append(structured_node(node, "iri-interaction-step"))
+            if index >= len(flow_nodes) - 1:
+                continue
+            from_id = str(node.get("id") or "")
+            to_id = str(flow_nodes[index + 1].get("id") or "")
+            edge = next(
+                (
+                    item
+                    for item in flow_edge_data
+                    if str(item.get("from") or "") == from_id and str(item.get("to") or "") == to_id
+                ),
+                {"from": from_id, "to": to_id, "relation": "ordered-before", "label": "→"},
+            )
+            flow_sequence_parts.append(edge_markup(edge, "iri-interaction-edge"))
+        flow_sequence = "".join(flow_sequence_parts)
+        poll_options = "".join(structured_node(node, "iri-poll-option") for node in poll_nodes)
+        body = (
+            f'{header()}'
+            '<div class="iri-interaction-layout">'
+            f'<div class="iri-interaction-flow"{entity_attrs(flow_group, kind="group")}>'
+            f'<h3>{_escape(str(flow_group.get("label") or ""))}</h3>'
+            + (f'<p>{_escape(str(flow_group.get("description") or ""))}</p>' if flow_group.get("description") else "")
+            + (f'<div class="iri-structured-items">{flow_intro}</div>' if flow_intro else "")
+            + f'<div class="iri-interaction-steps">{flow_sequence}</div></div>'
+            f'<aside class="iri-poll"{entity_attrs(poll_group, kind="group")}>'
+            f'<span>{_escape(str(poll_group.get("label") or ""))}</span>'
+            + (f'<p>{_escape(str(poll_group.get("description") or ""))}</p>' if poll_group.get("description") else "")
+            + f'<div class="iri-poll-options">{poll_options}</div></aside>'
+            '</div>'
+        )
+    elif scene == "layered-architecture":
+        groups = structured_content.get("groups") if isinstance(structured_content.get("groups"), list) else []
+        edges = structured_content.get("edges") if isinstance(structured_content.get("edges"), list) else []
+        rails = structured_content.get("rails") if isinstance(structured_content.get("rails"), list) else []
+        bands = structured_content.get("bands") if isinstance(structured_content.get("bands"), list) else []
+        layer_blocks = []
+        for group in groups:
+            group_id = str(group.get("id") or "")
+            values = group.get("items") if isinstance(group.get("items"), list) else []
+            nodes = group.get("nodes") if isinstance(group.get("nodes"), list) else []
+            details = "".join(f'<span>{_escape(str(item))}</span>' for item in values)
+            nodes_html = "".join(structured_node(node, "iri-architecture-node") for node in nodes)
+            layer_blocks.append(
+                f'<div class="iri-layered-architecture-layer kd-reveal"{entity_attrs(group, kind="group")}>'
+                f'<strong>{_escape(str(group.get("label") or ""))}</strong>'
+                + (f'<p>{_escape(str(group.get("description") or ""))}</p>' if group.get("description") else "")
+                + (f'<div class="iri-layered-architecture-details">{details}</div>' if details else "")
+                + nodes_html
+                + '</div>'
+            )
+            layer_blocks.extend(
+                edge_markup(edge, "iri-layered-architecture-edge")
+                for edge in edges
+                if str(edge.get("from") or "") == group_id
+                and str(edge.get("to") or "") in {str(next_group.get("id") or "") for next_group in groups}
+            )
+        rails_html = "".join(
+            f'<div class="iri-architecture-rail kd-reveal" data-relation="cross-cutting" '
+            f'data-edge-from="{_escape(str(rail.get("id") or ""))}" data-edge-to="architecture-stack"'
+            f'{entity_attrs(rail, kind="group")}>'
+            f'<h3>{_escape(str(rail.get("label") or ""))}</h3>'
+            + ''.join(f'<span>{_escape(str(item))}</span>' for item in (rail.get("items") if isinstance(rail.get("items"), list) else []))
+            + '</div>'
+            for rail in rails
+        )
+        band_from = str(groups[-1].get("id") or "") if groups else ""
+        band_to = str(groups[0].get("id") or "") if groups else ""
+        bands_html = "".join(
+            f'<div class="iri-architecture-band kd-reveal" data-relation="runtime-loop" '
+            f'data-edge-from="{_escape(band_from)}" data-edge-to="{_escape(band_to)}"'
+            f'{entity_attrs(band, kind="group")}>'
+            f'<strong>{_escape(str(band.get("label") or ""))}</strong>'
+            + ''.join(f'<span>{_escape(str(item))}</span>' for item in (band.get("items") if isinstance(band.get("items"), list) else []))
+            + '</div>'
+            for band in bands
+        )
+        body = (
+            f'{header()}'
+            '<div class="iri-layered-architecture" data-node-id="architecture-stack">'
+            f'<div class="iri-layered-architecture-main">{"".join(layer_blocks)}</div>'
+            f'<aside class="iri-architecture-rails"><h2>全域运行保障</h2>{rails_html}</aside>'
+            f'<div class="iri-architecture-bands">{bands_html}</div>'
+            '</div>'
+        )
+    elif scene == "layered-call-graph":
+        groups = structured_content.get("groups") if isinstance(structured_content.get("groups"), list) else []
+        edges = structured_content.get("edges") if isinstance(structured_content.get("edges"), list) else []
+        group_ids = {str(group.get("id") or "") for group in groups}
+        graph_node_ids = {
+            str(node.get("id") or "")
+            for group in groups
+            for node in (group.get("nodes") if isinstance(group.get("nodes"), list) else [])
+            if str(node.get("id") or "")
+        }
+        graph_edges = [
+            edge
+            for edge in edges
+            if str(edge.get("from") or "") in graph_node_ids
+            and str(edge.get("to") or "") in graph_node_ids
+        ]
+        phase_labels = []
+        all_layers = []
+        for group in groups:
+            group_id = str(group.get("id") or "")
+            nodes = group.get("nodes") if isinstance(group.get("nodes"), list) else []
+            tags = group.get("tags") if isinstance(group.get("tags"), list) else []
+            values = group.get("items") if isinstance(group.get("items"), list) else []
+            if group_id != "saas-foundation" and values:
+                phase_labels.append(str(values[0]))
+            tags_html = "".join(f'<span>{_escape(str(tag))}</span>' for tag in reversed(tags))
+            rail_subtitle = str(values[1] if len(values) > 1 else values[0] if values else "")
+            layer_title = str(group.get("description") or "")
+            detail = str(values[2]) if len(values) > 2 else ""
+
+            node_map = {str(node.get("id") or ""): node for node in nodes}
+            workflow_ids = ("activity-workflow", "workflow-l2", "workflow-l3")
+            data_ids = ("supplier-info", "credit-score", "business-data")
+            workflow_nodes = [node_map[node_id] for node_id in workflow_ids if node_id in node_map]
+            data_nodes = [node_map[node_id] for node_id in data_ids if node_id in node_map]
+            workflow_set = set(workflow_ids)
+            data_set = set(data_ids)
+            primary_nodes = [
+                node for node in nodes
+                if str(node.get("id") or "") not in workflow_set | data_set
+            ]
+            primary_html = "".join(structured_node(node, "iri-call-graph-node") for node in primary_nodes)
+            workflow_html = "".join(structured_node(node, "iri-call-graph-node iri-call-graph-node--workflow") for node in workflow_nodes)
+            data_html = "".join(structured_node(node, "iri-call-graph-node iri-call-graph-node--data") for node in data_nodes)
+            layer_class = " iri-call-graph-layer--foundation" if group_id == "saas-foundation" else ""
+            all_layers.append(
+                '<div class="iri-call-graph-row">'
+                '<aside class="iri-call-graph-rail">'
+                f'<strong>{_escape(str(group.get("label") or ""))}</strong>'
+                f'<span>{_escape(rail_subtitle)}</span>'
+                '</aside>'
+                f'<div class="iri-call-graph-layer{layer_class}"{entity_attrs(group, kind="group")}>'
+                '<div class="iri-call-graph-layer-body">'
+                '<div class="iri-call-graph-layer-head">'
+                f'<h3>{_escape(layer_title)}</h3>'
+                + (f'<div class="iri-call-graph-tags">{tags_html}</div>' if tags_html else "")
+                + '</div>'
+                + (f'<p class="iri-call-graph-detail">{_escape(detail)}</p>' if detail else "")
+                + (f'<div class="iri-call-graph-workflow">{workflow_html}</div>' if workflow_html else "")
+                + (f'<div class="iri-call-graph-nodes">{primary_html}</div>' if primary_html else "")
+                + (f'<div class="iri-call-graph-data">{data_html}</div>' if data_html else "")
+                + '</div></div></div>'
+            )
+            all_layers.extend(
+                edge_markup(edge, "iri-call-graph-handoff")
+                for edge in edges
+                if str(edge.get("from") or "") == group_id
+                and str(edge.get("to") or "") in group_ids
+            )
+        phases_html = "".join(f'<span>{_escape(label)}</span>' for label in phase_labels)
+        call_graph_title = str(spec.get("title") or "")
+        body = (
+            '<div class="iri-call-graph-heading">'
+            f'<h2>{_escape(call_graph_title)}</h2>'
+            f'<div class="iri-call-graph-phases">{phases_html}</div>'
+            '</div>'
+            '<div class="iri-layered-call-graph">'
+            f'{"".join(all_layers)}'
+            f'{edge_overlay(graph_edges, "iri-call-graph-edge-overlay")}'
+            '</div>'
+        )
+    elif scene == "architecture-stack":
+        layers = "".join(
+            '<div class="iri-architecture-layer kd-reveal">'
+            f'<span class="iri-number iri-accent-text-primary">{index:02d}</span>'
+            f'<strong>{_escape(_iridescence_split_item(item)[0])}</strong>'
+            f'<p>{_escape(_iridescence_split_item(item)[1])}</p>'
+            '</div>'
+            for index, item in enumerate(items[:5], start=1)
+        )
+        guards = "".join(
+            '<div class="iri-architecture-guard kd-reveal">'
+            f'<span class="iri-accent-text-secondary">GUARD {index:02d}</span>'
+            f'<strong>{_escape(_iridescence_split_item(item)[0])}</strong>'
+            f'<p>{_escape(_iridescence_split_item(item)[1])}</p>'
+            '</div>'
+            for index, item in enumerate(items[5:8], start=1)
+        )
+        body = (
+            f'{header()}'
+            '<div class="iri-architecture">'
+            f'<div class="iri-architecture-layers">{layers}</div>'
+            f'<aside class="iri-architecture-guards">{guards}</aside>'
+            '</div>'
+        )
+    elif scene == "context-matrix":
+        groups = []
+        for group_id, label, values in (
+            ("business-context", "BUSINESS CONTEXT", items[:8]),
+            ("environment-context", "ENVIRONMENT CONTEXT", items[8:16]),
+        ):
+            rows = "".join(
+                f'<div class="iri-context-row kd-reveal" data-node-id="{group_id}-{index}">'
+                f'<strong>{_escape(_iridescence_split_item(item)[0])}</strong>'
+                f'<span>{_escape(_iridescence_split_item(item)[1])}</span>'
+                '</div>'
+                for index, item in enumerate(values, start=1)
+            )
+            groups.append(f'<div class="iri-context-column" data-group-id="{group_id}"><h3>{label}</h3>{rows}</div>')
+        body = f'{header()}<div class="iri-context-matrix">{"".join(groups)}</div>'
+    elif scene == "call-chain":
+        nodes = "".join(
+            '<div class="iri-chain-node kd-reveal">'
+            f'<span class="iri-number iri-accent-text-primary">{index:02d}</span>'
+            f'<strong>{_escape(_iridescence_split_item(item)[0])}</strong>'
+            f'<p>{_escape(_iridescence_split_item(item)[1])}</p>'
+            '</div>'
+            for index, item in enumerate(items[:5], start=1)
+        )
+        body = f'{header()}<div class="iri-call-chain">{nodes}</div>'
+    elif scene == "dual-mode":
+        if role == "routing-comparison":
+            group_id = "routing-comparison"
+            node_ids = ("routing-agent-path", "routing-workflow-path")
+        else:
+            group_id = "dual-mode"
+            node_ids = ("agent-loop", "workflow")
+        modes = "".join(
+            f'<div class="iri-dual-track kd-reveal" data-node-id="{node_ids[index]}">'
+            f'<span class="iri-number {accent_cycle[index % len(accent_cycle)]}">{index + 1:02d}</span>'
+            f'<strong>{_escape(_iridescence_split_item(item)[0])}</strong>'
+            f'<p>{_escape(_iridescence_split_item(item)[1])}</p>'
+            f'<div class="iri-dual-path iri-dual-path--{"loop" if index == 0 else "fixed"}" aria-hidden="true"></div>'
+            '</div>'
+            for index, item in enumerate(items[:2])
+        )
+        body = (
+            f'{header()}<div class="iri-dual-mode" data-group-id="{group_id}" '
+            f'data-edge-from="{node_ids[0]}" data-edge-to="{node_ids[1]}" data-relation="parallel-tracks">{modes}</div>'
+        )
+    elif scene == "workshop-grid":
+        cells = "".join(
+            f'<div class="iri-workshop-cell kd-reveal" data-node-id="workshop-card-{index:02d}">'
+            f'<span class="iri-number {accent_cycle[(index - 1) % len(accent_cycle)]}">{index:02d}</span>'
+            f'<strong>{_escape(_iridescence_split_item(item)[0])}</strong>'
+            f'<p>{_escape(_iridescence_split_item(item)[1])}</p>'
+            '</div>'
+            for index, item in enumerate(items[:12], start=1)
+        )
+        reveal_class = " iri-workshop--reveal" if role == "workshop-reveal" else ""
+        body = f'{header()}<div class="iri-workshop{reveal_class}" data-group-id="workshop-cards">{cells}</div>'
+    elif scene == "capability-landscape":
+        capabilities = "".join(
+            f'<div class="iri-capability kd-reveal" data-node-id="capability-module-{index:02d}">'
+            f'<span class="iri-number iri-accent-text-primary">{index:02d}</span>'
+            f'<strong>{_escape(_iridescence_split_middle_dot(item, label_parts=2)[0])}</strong>'
+            f'<p>{_escape(_iridescence_split_middle_dot(item, label_parts=2)[1])}</p>'
+            '</div>'
+            for index, item in enumerate(items[:6], start=1)
+        )
+        process = _iridescence_split_middle_dot(items[6]) if len(items) > 6 else ("运行流程", spec.get("key_point", ""))
+        foundation = _iridescence_split_middle_dot(items[7]) if len(items) > 7 else ("Model / MaaS", spec.get("claim", ""))
+        body = (
+            f'{header()}'
+            '<div class="iri-capability-landscape" data-group-id="capability-landscape">'
+            f'<div class="iri-capability-grid" data-group-id="capability-modules">{capabilities}</div>'
+            '<div class="iri-capability-band kd-reveal" data-node-id="capability-runtime" '
+            'data-edge-from="capability-runtime" data-edge-to="capability-modules" data-relation="executes">'
+            f'<strong>{_escape(process[0])}</strong><span>{_escape(process[1])}</span>'
+            '</div>'
+            '<div class="iri-capability-foundation kd-reveal" data-node-id="capability-foundation" '
+            'data-edge-from="capability-foundation" data-edge-to="capability-runtime" data-relation="supports">'
+            f'<strong>{_escape(foundation[0])}</strong><span>{_escape(foundation[1])}</span>'
+            '</div></div>'
+        )
+    elif scene == "comparison-table":
+        has_source_headings = len(items) >= 7 and all(
+            columns[1] and not columns[2] for columns in map(_iridescence_split_columns, items[:2])
+        )
+        source_heading = _iridescence_split_columns(items[0]) if has_source_headings else ["开源 / 通用", "", ""]
+        enterprise_heading = _iridescence_split_columns(items[1]) if has_source_headings else ["企业级", "", ""]
+        comparison_items = items[2:7] if has_source_headings else items[:8]
+        conclusion = _iridescence_split_item(items[7]) if has_source_headings and len(items) > 7 else ("", "")
+        rows = "".join(
+            f'<div class="iri-comparison-row kd-reveal" data-group-id="comparison-row-{index:02d}" '
+            f'data-edge-from="comparison-open-source-{index:02d}" data-edge-to="comparison-enterprise-{index:02d}" '
+            'data-relation="row-aligned">'
+            f'<strong data-node-id="comparison-dimension-{index:02d}">{_escape(_iridescence_split_columns(item)[0])}</strong>'
+            f'<span data-node-id="comparison-open-source-{index:02d}">{_escape(_iridescence_split_columns(item)[1])}</span>'
+            f'<span data-node-id="comparison-enterprise-{index:02d}">{_escape(_iridescence_split_columns(item)[2])}</span>'
+            '</div>'
+            for index, item in enumerate(comparison_items, start=1)
+        )
+        conclusion_html = (
+            '<div class="iri-comparison-conclusion kd-reveal">'
+            f'<strong>{_escape(conclusion[0])}</strong><span>{_escape(conclusion[1])}</span>'
+            '</div>'
+            if conclusion[0]
+            else ""
+        )
+        body = (
+            f'{header()}'
+            '<div class="iri-comparison-table" data-group-id="enterprise-comparison-table">'
+            '<div class="iri-comparison-row iri-comparison-head"><strong>维度</strong>'
+            f'<span><b>{_escape(source_heading[0])}</b><small>{_escape(source_heading[1])}</small></span>'
+            f'<span><b>{_escape(enterprise_heading[0])}</b><small>{_escape(enterprise_heading[1])}</small></span></div>'
+            f'{rows}{conclusion_html}</div>'
+        )
     else:
         commands = "".join(
             f'<div class="iri-panel iri-command kd-reveal">{_escape(item)}</div>' for item in items[:3]

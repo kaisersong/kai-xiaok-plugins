@@ -94,7 +94,7 @@ class TestPluginJsonValid:
             "registry.json": registry_entry["version"],
             "skills/slide-planner/SKILL.md": skill_version.group(1),
         }
-        assert set(versions.values()) == {"3.5.0"}, versions
+        assert set(versions.values()) == {"3.6.0"}, versions
 
     def test_skills_list_non_empty(self, plugin_json: dict):
         assert isinstance(plugin_json["skills"], list)

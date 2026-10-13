@@ -1,6 +1,6 @@
 [project]
 name = "slide-renderer-mcp"
-version = "3.5.0"
+version = "3.6.0"
 description = "MCP server for slide-creator deterministic rendering"
 requires-python = ">=3.11"
 dependencies = [
