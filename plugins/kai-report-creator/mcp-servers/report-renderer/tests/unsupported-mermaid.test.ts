@@ -23,6 +23,20 @@ describe('unsupported raw Mermaid', () => {
     expect(handleValidateIR({ ir_content: (header + '```mermaid\n' + graph).replaceAll('\n', '\r\n') }).valid).toBe(false);
   });
 
+  it('invalid backtick info cannot hide a raw graph or overwrite accepted HTML', () => {
+    const ir = header + '```text `\n```mermaid\n' + graph + '\n```';
+    expect(handleValidateIR({ ir_content: ir }).valid).toBe(false);
+    const directory = mkdtempSync(join(tmpdir(), 'report-pseudo-fence-'));
+    try {
+      const output = join(directory, 'report.html');
+      expect(handleRenderReport({ ir_content: ir, output_path: output }).success).toBe(false);
+      expect(existsSync(output)).toBe(false);
+      writeFileSync(output, 'accepted artifact');
+      expect(handleRenderReport({ ir_content: ir, output_path: output }).success).toBe(false);
+      expect(readFileSync(output, 'utf8')).toBe('accepted artifact');
+    } finally { rmSync(directory, { recursive: true, force: true }); }
+  });
+
   it.each([false, 'scrollytelling'])('does not create or overwrite output before render mode %s', mode => {
     const directory = mkdtempSync(join(tmpdir(), 'report-mermaid-'));
     try {

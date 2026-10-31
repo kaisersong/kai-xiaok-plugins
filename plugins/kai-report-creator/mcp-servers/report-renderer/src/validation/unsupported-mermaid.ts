@@ -29,6 +29,9 @@ export function findUnsupportedMermaid(source: string): UnsupportedMermaid[] {
     if (codeBlocks.some(block => index >= block.lineStart && index <= block.lineEnd)) continue;
     const open = line.match(/^(`{3,}|~{3,})\s*(.*)$/);
     if (!open) continue;
+    // Backtick info strings cannot themselves contain backticks. An invalid
+    // pseudo fence must not hide a later real Mermaid block as a literal.
+    if (open[1]![0] === '`' && open[2]!.includes('`')) continue;
     if (/^mermaid(?:\s|$)/i.test(open[2]!)) {
       issues.push({
         line: index + 1,

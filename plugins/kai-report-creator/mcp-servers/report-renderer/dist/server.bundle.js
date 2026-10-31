@@ -40367,6 +40367,8 @@ function findUnsupportedMermaid(source) {
     const open2 = line.match(/^(`{3,}|~{3,})\s*(.*)$/);
     if (!open2)
       continue;
+    if (open2[1][0] === "`" && open2[2].includes("`"))
+      continue;
     if (/^mermaid(?:\s|$)/i.test(open2[2])) {
       issues.push({
         line: index + 1,
