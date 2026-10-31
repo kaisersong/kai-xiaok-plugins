@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync, readdirSync } from 'node:fs';
 import { createHash } from 'node:crypto';
-import { resolve, join } from 'node:path';
+import { resolve, join, sep } from 'node:path';
 
 const root = resolve(import.meta.dirname, '../../..');
 const json = (path: string) => JSON.parse(readFileSync(path, 'utf8'));
@@ -15,7 +15,7 @@ describe('formal report upstream sync', () => {
     const paths = ['references', 'themes'].flatMap(folder =>
       readdirSync(join(root, folder), { recursive: true, withFileTypes: true })
         .filter(entry => entry.isFile())
-        .map(entry => resolve(entry.parentPath, entry.name).slice(root.length + 1)));
+        .map(entry => resolve(entry.parentPath, entry.name).slice(root.length + 1).split(sep).join('/')));
     expect(Object.keys(manifest.files).sort()).toEqual(paths.sort());
     for (const [path, hash] of Object.entries(manifest.files)) {
       expect(createHash('sha256').update(readFileSync(join(root, path))).digest('hex')).toBe(hash);

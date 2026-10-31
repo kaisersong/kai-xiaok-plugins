@@ -37644,7 +37644,7 @@ function toStringArray(val) {
 var STRUCTURAL_DIRECTIVES = /* @__PURE__ */ new Set(["cover", "toc", "section"]);
 function parseDocument(source) {
   const { frontmatter, warnings, bodyStart } = parseFrontmatter(source);
-  const lines = source.split("\n");
+  const lines = source.split(/\r?\n/);
   const rawBody = lines.slice(bodyStart).join("\n");
   const blocks = parseBlocks(rawBody, bodyStart);
   const sections = parseSections(rawBody, blocks, bodyStart);
@@ -37674,7 +37674,7 @@ function extractCoverBody(body) {
   return null;
 }
 function parseBlocks(body, lineOffset = 0) {
-  const lines = body.split("\n");
+  const lines = body.split(/\r?\n/);
   const blocks = [];
   let i = 0;
   while (i < lines.length) {
@@ -37711,7 +37711,7 @@ function parseBlocks(body, lineOffset = 0) {
   return blocks;
 }
 function parseSections(body, blocks, lineOffset = 0) {
-  const lines = body.split("\n");
+  const lines = body.split(/\r?\n/);
   const sections = [];
   let currentSection = null;
   const contentLines = [];
