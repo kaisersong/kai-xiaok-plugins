@@ -40346,12 +40346,55 @@ function renderImage(block, options) {
           </figure>`;
 }
 
+// dist/validation/unsupported-mermaid.js
+function findUnsupportedMermaid(source) {
+  const { bodyStart } = parseFrontmatter(source);
+  const lines = source.split("\n");
+  const codeBlocks = parseBlocks(lines.slice(bodyStart).join("\n"), bodyStart).filter((block) => block.tag === "code");
+  const issues = [];
+  let literalFence = null;
+  for (let index = bodyStart; index < lines.length; index++) {
+    const line = lines[index].trim();
+    if (literalFence) {
+      const close = line.match(/^(`{3,}|~{3,})\s*$/);
+      if (close && close[1][0] === literalFence.char && close[1].length >= literalFence.length) {
+        literalFence = null;
+      }
+      continue;
+    }
+    if (codeBlocks.some((block) => index >= block.lineStart && index <= block.lineEnd))
+      continue;
+    const open2 = line.match(/^(`{3,}|~{3,})\s*(.*)$/);
+    if (!open2)
+      continue;
+    if (/^mermaid(?:\s|$)/i.test(open2[2])) {
+      issues.push({
+        line: index + 1,
+        message: `Unsupported raw Mermaid fence at line ${index + 1}; convert to a supported :::diagram component. Do not handwrite HTML.`
+      });
+    }
+    literalFence = { char: open2[1][0], length: open2[1].length };
+  }
+  return issues;
+}
+
 // dist/renderer/html-builder.js
 var STRUCTURAL_DIRECTIVES2 = /* @__PURE__ */ new Set(["cover", "toc", "section"]);
 var SKIP_BODY_DIRECTIVES = /* @__PURE__ */ new Set(["toc"]);
 function renderReport(input2) {
   const warnings = [];
   const doc = parseDocument(input2.irContent);
+  const unsupported = findUnsupportedMermaid(input2.irContent);
+  if (unsupported.length > 0) {
+    return {
+      success: false,
+      outputPath: input2.outputPath ?? `report-${doc.frontmatter.date || "output"}.html`,
+      html: "",
+      validation: { l0: false, l1: false, l2: false, l3: false },
+      warnings: unsupported.map((issue2) => issue2.message),
+      stats: { sections: doc.sections.length, components: doc.blocks.length, cssBytes: 0, htmlBytes: 0 }
+    };
+  }
   if (doc.frontmatterWarnings.length > 0) {
     warnings.push(...doc.frontmatterWarnings);
   }
@@ -41414,15 +41457,21 @@ function handleValidateIR(input2) {
   const doc = parseDocument(ir_content);
   const validation = validateBlocks(doc.blocks, doc.frontmatter.report_class);
   const qualityHints = checkContentQuality(doc);
+  const unsupported = findUnsupportedMermaid(ir_content);
   return {
-    valid: validation.valid && doc.frontmatterWarnings.length === 0,
-    errors: validation.errors.map((e) => ({
+    valid: validation.valid && doc.frontmatterWarnings.length === 0 && unsupported.length === 0,
+    errors: [...validation.errors.map((e) => ({
       block_index: e.blockIndex,
       tag: e.tag,
       status: e.status,
       message: e.message,
       auto_downgrade_target: e.autoDowngradeTarget
-    })),
+    })), ...unsupported.map((issue2) => ({
+      block_index: -1,
+      tag: "mermaid",
+      status: "unsupported_syntax",
+      message: issue2.message
+    }))],
     quality_hints: qualityHints,
     frontmatter_warnings: doc.frontmatterWarnings,
     block_count: validation.blockCount,

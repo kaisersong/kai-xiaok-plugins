@@ -1,6 +1,7 @@
 import { parseDocument } from '../parser/ir-parser.js';
 import { validateBlocks } from '../validation/ir-validator.js';
 import { checkContentQuality } from '../validation/quality-checks.js';
+import { findUnsupportedMermaid } from '../validation/unsupported-mermaid.js';
 export function handleValidateIR(input) {
     const { ir_content } = input;
     if (!ir_content || !ir_content.trim()) {
@@ -16,15 +17,21 @@ export function handleValidateIR(input) {
     const doc = parseDocument(ir_content);
     const validation = validateBlocks(doc.blocks, doc.frontmatter.report_class);
     const qualityHints = checkContentQuality(doc);
+    const unsupported = findUnsupportedMermaid(ir_content);
     return {
-        valid: validation.valid && doc.frontmatterWarnings.length === 0,
-        errors: validation.errors.map(e => ({
-            block_index: e.blockIndex,
-            tag: e.tag,
-            status: e.status,
-            message: e.message,
-            auto_downgrade_target: e.autoDowngradeTarget,
-        })),
+        valid: validation.valid && doc.frontmatterWarnings.length === 0 && unsupported.length === 0,
+        errors: [...validation.errors.map(e => ({
+                block_index: e.blockIndex,
+                tag: e.tag,
+                status: e.status,
+                message: e.message,
+                auto_downgrade_target: e.autoDowngradeTarget,
+            })), ...unsupported.map(issue => ({
+                block_index: -1,
+                tag: 'mermaid',
+                status: 'unsupported_syntax',
+                message: issue.message,
+            }))],
         quality_hints: qualityHints,
         frontmatter_warnings: doc.frontmatterWarnings,
         block_count: validation.blockCount,
