@@ -252,9 +252,9 @@ class TestVendoredPresetFidelity:
         }
         for root_name in ("schemas", "references", "themes"):
             root = PLUGIN_ROOT / root_name
-            expected.update(str(path.relative_to(PLUGIN_ROOT)) for path in root.rglob("*") if path.is_file())
+            expected.update(path.relative_to(PLUGIN_ROOT).as_posix() for path in root.rglob("*") if path.is_file())
         expected.update(
-            str(path.relative_to(PLUGIN_ROOT))
+            path.relative_to(PLUGIN_ROOT).as_posix()
             for path in (PLUGIN_ROOT / "demos").rglob("*.html")
             if path.is_file()
         )
