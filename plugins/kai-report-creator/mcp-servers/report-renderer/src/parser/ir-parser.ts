@@ -33,7 +33,7 @@ const STRUCTURAL_DIRECTIVES = new Set(['cover', 'toc', 'section']);
  */
 export function parseDocument(source: string): IRDocument {
   const { frontmatter, warnings, bodyStart } = parseFrontmatter(source);
-  const lines = source.split('\n');
+  const lines = source.split(/\r?\n/);
   const rawBody = lines.slice(bodyStart).join('\n');
 
   const blocks = parseBlocks(rawBody, bodyStart);
@@ -73,7 +73,7 @@ function extractCoverBody(body: string): string | null {
  * Parse all :::tag ... ::: blocks from the body.
  */
 export function parseBlocks(body: string, lineOffset = 0): IRBlock[] {
-  const lines = body.split('\n');
+  const lines = body.split(/\r?\n/);
   const blocks: IRBlock[] = [];
 
   let i = 0;
@@ -120,7 +120,7 @@ export function parseBlocks(body: string, lineOffset = 0): IRBlock[] {
  * Parse sections split by ## headings.
  */
 export function parseSections(body: string, blocks: IRBlock[], lineOffset = 0): IRSection[] {
-  const lines = body.split('\n');
+  const lines = body.split(/\r?\n/);
   const sections: IRSection[] = [];
   let currentSection: IRSection | null = null;
   const contentLines: string[] = [];

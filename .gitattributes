@@ -1,0 +1,6 @@
+plugins/kai-report-creator/references/**/*.md text eol=lf
+plugins/kai-report-creator/references/*.md text eol=lf
+plugins/kai-report-creator/themes/**/*.md text eol=lf
+plugins/kai-report-creator/themes/**/*.css text eol=lf
+plugins/kai-report-creator/themes/*.md text eol=lf
+plugins/kai-report-creator/themes/*.css text eol=lf

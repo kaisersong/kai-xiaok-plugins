@@ -1,0 +1,29 @@
+name: Report renderer validation
+on:
+  pull_request:
+    paths: ['plugins/kai-report-creator/**', '.github/workflows/report-renderer-validation.yml']
+  push:
+    branches: ['fix/report-raw-mermaid-20261031']
+  workflow_dispatch:
+jobs:
+  renderer:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        node: ['22.22.0', '24']
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        working-directory: plugins/kai-report-creator/mcp-servers/report-renderer
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+          cache-dependency-path: plugins/kai-report-creator/mcp-servers/report-renderer/package-lock.json
+      - run: npm ci
+      - run: npm test
+      - run: npm run build
+      - run: npm run build:bundle
