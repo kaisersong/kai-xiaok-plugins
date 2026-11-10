@@ -12,6 +12,17 @@ function loadFixture(name: string): string {
   return readFileSync(join(fixturesDir, name), 'utf-8');
 }
 
+describe('Windows line endings', () => {
+  it('preserves the complete parsed document and source line numbers', () => {
+    const lf = loadFixture('valid-mixed.report.md').replace(/\r\n/g, '\n');
+    const crlf = lf.replace(/\n/g, '\r\n');
+    expect(parseDocument(crlf)).toEqual(parseDocument(lf));
+    const body = '## Fixture\n:::code\n```mermaid\ngraph TD\nA --> B\n```\n:::\n';
+    expect(parseBlocks(body.replace(/\n/g, '\r\n'))).toEqual(parseBlocks(body));
+    expect(parseSections(body.replace(/\n/g, '\r\n'), [])).toEqual(parseSections(body, []));
+  });
+});
+
 describe('parseFrontmatter', () => {
   it('parses valid frontmatter', () => {
     const source = loadFixture('valid-mixed.report.md');

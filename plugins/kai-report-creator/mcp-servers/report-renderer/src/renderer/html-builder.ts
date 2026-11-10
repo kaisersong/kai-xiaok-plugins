@@ -30,6 +30,7 @@ import { renderDiagram } from './components/diagram.js';
 import { renderCode } from './components/code.js';
 import { renderImage } from './components/image.js';
 import type { RenderOptions } from './types.js';
+import { findUnsupportedMermaid } from '../validation/unsupported-mermaid.js';
 
 export interface RenderResult {
   success: boolean;
@@ -53,6 +54,17 @@ const SKIP_BODY_DIRECTIVES = new Set(['toc']);
 export function renderReport(input: RenderInput): RenderResult {
   const warnings: string[] = [];
   const doc = parseDocument(input.irContent);
+  const unsupported = findUnsupportedMermaid(input.irContent);
+  if (unsupported.length > 0) {
+    return {
+      success: false,
+      outputPath: input.outputPath ?? `report-${doc.frontmatter.date || 'output'}.html`,
+      html: '',
+      validation: { l0: false, l1: false, l2: false, l3: false },
+      warnings: unsupported.map(issue => issue.message),
+      stats: { sections: doc.sections.length, components: doc.blocks.length, cssBytes: 0, htmlBytes: 0 },
+    };
+  }
 
   if (doc.frontmatterWarnings.length > 0) {
     warnings.push(...doc.frontmatterWarnings);
