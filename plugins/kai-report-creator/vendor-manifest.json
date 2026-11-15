@@ -5,6 +5,9 @@
   "source_version": "1.28.1",
   "source_dirty": true,
   "adapter": "plugin-owned TypeScript renderer; upstream templates do not overwrite adapter CSS",
+  "normalizations": {
+    "references/impeccable-anti-patterns.md": "CRLF to LF per .gitattributes; upstream SHA256 1ec59a0ee5b58d73570105cf8f92be997c1ef1009cc8713ec9d095cd27defdf5"
+  },
   "files": {
     "references/INDEX.md": "be48445977ddb5e4ba3d5082f222d7624e7ce5a3a3c04db0aa36ed2c32edd74b",
     "references/animated-shell/iridescence.md": "ad66ed77a0e83d86b514d77a439432e99ac1f6191e3ce158cf5d6ccf85cabb1e",
@@ -22,7 +25,7 @@
     "references/html-shell/summary-card.md": "91caf3e5049e33ad64a4e86f72f813fe2e26e2729c10ac1fc98620c7aaeb2782",
     "references/html-shell/toc-edit-summary.md": "d90928d1898a2425721cf7ef91fe915d249d946af5365f9f4c3e1aae156fe829",
     "references/html-shell-template.md": "a51b69bd664ce7c07a97824b632fed796c0d0a1d46d2873eac44fd797f4e19c0",
-    "references/impeccable-anti-patterns.md": "1ec59a0ee5b58d73570105cf8f92be997c1ef1009cc8713ec9d095cd27defdf5",
+    "references/impeccable-anti-patterns.md": "57034d08f0396d008a993b09212a25a23a2e8df825c6f9e06766eb0514042b1a",
     "references/ir-contract.md": "aff0cff7bffc055da738d07ce2ded8b86b32f16b6bb696df0deef09928df4ca9",
     "references/output-metadata.md": "544ec9489935c6c211af6430a12e2d9354815befcaaf7076af664f6f951b1231",
     "references/plan-flow.md": "b755699c2bdb6526a1dbc4f4848b6ec611e549710ebcf284ed3e13a857014460",
